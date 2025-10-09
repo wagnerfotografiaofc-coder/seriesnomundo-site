@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iGames - Protótipo FINAL COMPLETO</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --cor-fundo: #121213;
+            --cor-fundo-card: #1a1a1b;
+            --cor-borda: #3a3a3c;
+            --cor-texto-principal: #e0e0e0;
+            --cor-texto-titulo: #ffffff;
+            --cor-destaque: #E8590C;
+            --fonte-titulo: 'Montserrat', sans-serif;
+            --fonte-corpo: 'Open Sans', sans-serif;
+        }
+        body[data-theme="light"] { --cor-fundo: #c2bfbf; --cor-fundo-card: #ffffff; --cor-borda: #dee2e6; --cor-texto-principal: #495057; --cor-texto-titulo: #212529; }
+        body[data-theme="red"] { --cor-fundo: #2b0a0a; --cor-fundo-card: #3d1111; --cor-borda: #611a1a; --cor-texto-principal: #f3d9d9; --cor-texto-titulo: #ffffff; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: var(--cor-fundo); color: var(--cor-texto-principal); font-family: var(--fonte-corpo); line-height: 1.6; transition: background-color 0.3s, color 0.3s; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--cor-borda); position: relative; }
+        .logo { font-family: var(--fonte-titulo); font-weight: 900; font-size: 2em; color: var(--cor-texto-titulo); cursor: pointer; position: absolute; left: 50%; transform: translateX(-50%); }
+        .menu-icon { font-size: 2em; cursor: pointer; color: var(--cor-texto-titulo); z-index: 1001; }
+        .side-menu { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background-color: var(--cor-fundo-card); border-right: 1px solid var(--cor-borda); padding: 80px 20px 20px; transition: left 0.3s ease-in-out, background-color 0.3s; z-index: 1000; }
+        .side-menu.open { left: 0; }
+        .side-menu nav ul { list-style: none; }
+        .side-menu nav li a { color: var(--cor-texto-titulo); text-decoration: none; font-family: var(--fonte-titulo); font-size: 1.5em; display: block; padding: 15px 0; transition: color 0.2s; }
+        .side-menu nav li a:hover { color: var(--cor-destaque); }
+
+        #theme-switcher { display: flex; gap: 10px; }
+        .theme-dot { width: 19px; height: 19px; border-radius: 50%; cursor: pointer; border: 2px solid var(--cor-borda); transition: transform 0.2s; }
+        .theme-dot:hover { transform: scale(1.2); }
+
+        .hidden { display: none !important; }
+        h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margin-bottom: 20px; font-weight: 700; }
+        .section-title { font-size: 2.5em; border-left: 5px solid var(--cor-destaque); padding-left: 15px; margin-top: 40px; margin-bottom: 30px; }
+
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; }
+        .card { background-color: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+        .card-image { height: 180px; width: 100%; object-fit: cover; }
+        .card-content { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
+        .card-title { font-family: var(--fonte-titulo); font-size: 1.4em; color: var(--cor-texto-titulo); margin-bottom: 10px; }
+        .card-description { font-size: 0.95em; flex-grow: 1; margin-bottom: 20px; }
+        .card-button { display: inline-block; background-color: var(--cor-destaque); color: var(--cor-texto-titulo); padding: 10px 15px; border-radius: 5px; text-decoration: none; text-align: center; font-weight: bold; transition: background-color 0.2s; border: none; font-family: var(--fonte-corpo); font-size: 1em; cursor: pointer; }
+        .card-button:hover { background-color: #d9480f; }
+        .card-quiz { cursor: pointer; }
+
+        .text-page { max-width: 800px; margin: 40px auto; }
+        .text-page-title { font-size: 3em; line-height: 1.2; margin-bottom: 30px; }
+        .text-page-image { height: 400px; width: 100%; border-radius: 10px; margin-bottom: 30px; object-fit: cover; }
+        .text-page-content { font-size: 1.1em; line-height: 1.8; }
+        .text-page-content p { margin-bottom: 20px; }
+        
+        #quiz-monica-container { max-width: 600px; margin: 40px auto; background-color: var(--cor-fundo-card); padding: 30px; border-radius: 10px; border: 1px solid var(--cor-borda); transition: background-color 0.3s; }
+        .clues { list-style: none; margin-bottom: 30px; }
+        .clues li { background-color: var(--cor-fundo); padding: 15px; margin-bottom: 5px; border-radius: 5px; border-left: 3px solid var(--cor-destaque); transition: background-color 0.3s; }
+        .character-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .character-btn { background-color: #565758; color: #ffffff; padding: 20px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; transition: all 0.2s; }
+        .btn-correct { background-color: #2f9e44 !important; }
+        .btn-incorrect { background-color: #c92a2a !important; }
+
+        footer { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--cor-borda); }
+        .footer-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+        .footer-links { display: flex; gap: 30px; }
+        .footer-links a { color: var(--cor-texto-principal); text-decoration: none; font-weight: bold; font-size: 1.1em; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--cor-destaque); }
+        .social-button { display: inline-block; padding: 10px 20px; border-radius: 7px; color: white; text-decoration: none; font-weight: bold; transition: transform 0.2s; }
+        .social-button:hover { transform: scale(1.05); }
+        .instagram { background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); }
+
+        #pagination-controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 40px; }
+        .page-button { background-color: var(--cor-fundo-card); border: 1px solid var(--cor-borda); color: var(--cor-texto-principal); font-family: var(--fonte-titulo); font-weight: bold; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s, color 0.2s; }
+        .page-button:hover { background-color: var(--cor-destaque); color: var(--cor-texto-titulo); border-color: var(--cor-destaque); }
+        .page-button.active { background-color: var(--cor-destaque); color: var(--cor-texto-titulo); border-color: var(--cor-destaque); }
+        
+        #search-input { width: 100%; padding: 15px; font-size: 1.1em; border-radius: 8px; border: 2px solid var(--cor-borda); background-color: var(--cor-fundo-card); color: var(--cor-texto-principal); margin-bottom: 30px; transition: border-color 0.2s, background-color 0.3s, color 0.3s; }
+        #search-input:focus { outline: none; border-color: var(--cor-destaque); }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <header class="container">
+        <div class="menu-icon">☰</div>
+        <div class="logo" id="logo-home">SERIES NO MUNDO</div>
+        <div id="theme-switcher">
+            <div class="theme-dot" data-theme="dark" style="background-color: #121213;"></div>
+            <div class="theme-dot" data-theme="light" style="background-color: #f8f9fa;"></div>
+            <div class="theme-dot" data-theme="red" style="background-color: #2b0a0a;"></div>
+        </div>
+    </header>
+
+    <div class="side-menu">
+        <nav>
+            <ul>
+                <li><a href="#" id="nav-home">Início</a></li>
+                <li><a href="#" id="nav-posts">Filmes/Séries (Teste)</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <main class="container">
+        <div id="home-screen">
+             <h2 class="section-title">Filmes em Destaque</h2>
+             <div class="card-grid">
+                 <div class="card"><img src="imagens/1.png" alt="Destaque de Filme" class="card-image"><div class="card-content"><h3 class="card-title">💀 Thanos: O Vilão que Quis Salvar o Universo</h3><p class="card-description">Mais que um tirano, Thanos é o reflexo do ideal corrompido — um herói trágico que acreditou destruir para salvar o universo.</p><button class="card-button" data-post-id="4">Ler Mais</button></div></div>
+                 <div class="card"><img src="imagens/1.png" alt="Destaque de Filme" class="card-image"><div class="card-content"><h3 class="card-title">🏎️ Velozes e Furiosos 5: O Filme que Transformou Corridas em Lenda</h3><p class="card-description">Gravado no Rio, Velozes e Furiosos 5 reinventou a franquia, unindo ação explosiva, emoção genuína e o nascimento definitivo do legado “família”.</p><button class="card-button" data-post-id="5">Ler Mais</button></div></div>
+                 <div class="card"><img src="imagens/1.png" alt="Destaque de Filme" class="card-image"><div class="card-content"><h3 class="card-title">⚡ Os 10 Bruxos Mais Poderosos de Harry Potter</h3><p class="card-description">De Dumbledore a Hermione, descubra quem realmente domina o universo bruxo — não apenas em poder, mas em sabedoria, coragem e impacto eterno.</p><button class="card-button" data-post-id="6">Ler Mais</button></div></div>
+             </div>
+             <h2 class="section-title">Quiz Especial</h2>
+             <div class="card-grid"><div class="card card-quiz" id="quiz-card-home"><img src="imagens/2.png" alt="Destaque de Quiz" class="card-image"><div class="card-content"><h3 class="card-title">🌟 Descubra o Personagem de Friends</h3><p class="card-description">Com apenas 3 dicas, você consegue adivinhar de quem estamos falando? Clique aqui para testar seus conhecimentos sobre a turma do Central Perk!</p><span class="card-button">Jogar Agora</span></div></div></div>
+             <h2 class="section-title">Séries em Destaque</h2>
+             <div class="card-grid">
+                 <div class="card"><img src="imagens/2.png" alt="Destaque de Série" class="card-image"><div class="card-content"><h3 class="card-title">🌟 Mônica Geller: O Coração Silencioso de Friends</h3><p class="card-description">Mais que uma personagem, Mônica Geller é a força invisível que dá estrutura, afeto e equilíbrio ao grupo mais amado da TV.</p><button class="card-button" data-post-id="1">Ler Mais</button></div></div>
+                 <div class="card"><img src="imagens/2.png" alt="Destaque de Série" class="card-image"><div class="card-content"><h3 class="card-title">🔥 Naruto vs. Sasuke: A Batalha entre Coração e Ódio</h3><p class="card-description">No Vale do Fim, Naruto luta com compaixão, Sasuke com fúria — um duelo onde o poder cede espaço ao verdadeiro significado dos laços.</p><button class="card-button" data-post-id="2">Ler Mais</button></div></div>
+                 <div class="card"><img src="imagens/2.png" alt="Destaque de Série" class="card-image"><div class="card-content"><h3 class="card-title">🔥 Tóquio: A Alma Rebelde de La Casa de Papel</h3><p class="card-description">Entre o caos e a paixão, Tóquio é o coração pulsante de La Casa de Papel — imperfeita, intensa e absolutamente inesquecível.</p><button class="card-button" data-post-id="3">Ler Mais</button></div></div>
+             </div>
+        </div>
+        
+        <div id="posts-screen" class="hidden">
+             <h1 class="section-title">Todos os Posts</h1>
+             <input type="search" id="search-input" placeholder="Pesquisar por título...">
+             <div class="card-grid" id="posts-grid-container"></div>
+             <div id="pagination-controls"></div>
+        </div>
+        
+        <div id="single-post-screen" class="hidden text-page"></div>
+ 
+        <div id="quiz-screen" class="hidden">
+             <div id="quiz-monica-container">
+                 <h2>Descubra o Personagem de Friends</h2>
+                 <ul class="clues"><li><strong>Dica 1:</strong> Já quebrou algo importante e escondeu o segredo por mais de 20 anos.</li><li><strong>Dica 2:</strong> Sua primeira aparição envolve gelo e constrangimento.</li><li><strong>Dica 3:</strong> Durante uma viagem, uma mudança drástica de clima quase revelou um segredo.</li></ul>
+                 <div class="character-options"><button class="character-btn" data-char="rachel">Rachel Green</button><button class="character-btn" data-char="monica">Monica Geller</button><button class="character-btn" data-char="phoebe">Phoebe Buffay</button><button class="character-btn" data-char="joey">Joey Tribbiani</button><button class="character-btn" data-char="chandler">Chandler Bing</button><button class="character-btn" data-char="ross">Ross Geller</button></div>
+             </div>
+        </div>
+
+        <div id="about-screen" class="hidden text-page">
+            <h1 class="text-page-title">Sobre Nós</h1>
+            <div class="text-page-content">
+                <p>Bem-vindo ao iGAMES, o seu universo de entretenimento sobre filmes, séries e cultura pop!</p>
+                <p>Nascemos da paixão por contar histórias e da vontade de criar um espaço onde fãs pudessem se aprofundar nos universos que tanto amam. Aqui, analisamos personagens, desvendamos teorias e criamos quizzes divertidos para testar seus conhecimentos.</p>
+                <p>Nossa equipe é formada por entusiastas que, assim como você, vibram com cada lançamento, choram com cada despedida e debatem incansavelmente sobre qual herói é o mais forte. Queremos construir uma comunidade onde essa paixão possa ser compartilhada.</p>
+                <p>Obrigado por fazer parte da nossa história. Explore, divirta-se e sinta-se em casa!</p>
+            </div>
+        </div>
+
+        <div id="privacy-screen" class="hidden text-page">
+            <h1 class="text-page-title">Política de Privacidade</h1>
+            <div class="text-page-content">
+                <p>A sua privacidade é importante para nós. É política do iGAMES respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar no site iGAMES.</p>
+                <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
+                <p>Apenas retemos as informações coletadas pelo tempo necessário para fornecer o serviço solicitado. Quando armazenamos dados, protegemos dentro de meios comercialmente aceitáveis ​​para evitar perdas e roubos, bem como acesso, divulgação, cópia, uso ou modificação não autorizados.</p>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container footer-container">
+            <div class="footer-links">
+                <a href="#" id="nav-about">Sobre Nós</a>
+                <a href="#" id="nav-privacy">Política de Privacidade</a>
+            </div>
+            <div class="footer-social">
+                <a href="https://www.instagram.com" target="_blank" class="social-button instagram">Instagram</a>
+            </div>
+        </div>
+    </footer>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const originalPosts = [
+                { id: 1, category: 'serie', title: '🌟 Mônica Geller: O Coração Silencioso de Friends', description: 'Mais que uma personagem, Mônica Geller é a força invisível que dá estrutura, afeto e equilíbrio ao grupo mais amado da TV.', full_text: 'Entre risadas, romances e confusões, Friends construiu um universo onde seis amigos viraram ícones de gerações. Mas, por trás de toda a leveza e humor, existe um alicerce discreto e essencial: Mônica Geller. Ela não é apenas a “maníaca por limpeza” ou a anfitriã compulsiva; é o coração que mantém o grupo pulsando em harmonia.<br><br>O apartamento roxo de Mônica não é apenas cenário — é o lar simbólico da série. É ali que as histórias nascem, onde as dores são acolhidas e as alegrias compartilhadas. Sem aquele espaço — e sem Mônica — Friends perderia sua base emocional. Sua necessidade de organização, muitas vezes exagerada, é o que dá forma ao caos que envolve os outros personagens. Ela estrutura o convívio, oferece abrigo e transforma amizade em pertencimento.<br><br>Além do espaço físico, Mônica é o elo emocional entre todos. Irmã de Ross, melhor amiga de Rachel, parceira amorosa de Chandler e confidente de Joey e Phoebe, ela é o ponto de equilíbrio de um grupo repleto de contrastes. Sua empatia e lealdade silenciosa sustentam a união que o público tanto admira.<br><br>E há ainda a Mônica que cresce, amadurece e supera. A jovem insegura que enfrentou rejeições e padrões familiares torna-se uma mulher forte, realizada e amorosa. Seu relacionamento com Chandler representa o amor maduro — construído na confiança, no humor e na reciprocidade.<br><br>Mônica Geller não é apenas parte de Friends; ela é a razão pela qual o grupo se torna uma verdadeira família. Sem ela, faltaria o coração.' },
+                { id: 2, category: 'serie', title: '🔥 Naruto vs. Sasuke: A Batalha entre Coração e Ódio', description: 'No Vale do Fim, Naruto luta com compaixão, Sasuke com fúria — um duelo onde o poder cede espaço ao verdadeiro significado dos laços.', full_text: 'A última batalha entre Naruto Uzumaki e Sasuke Uchiha transcende o conceito de luta física. No Vale do Fim, o que realmente colide não são apenas jutsus, mas ideais. De um lado, Naruto carrega 50% de seu poder — a escolha consciente de quem luta com empatia, não com destruição. Do outro, Sasuke libera 100% de seu ódio, buscando cortar os laços que o prendem ao passado e provar que a solidão é sinônimo de força.<br><br>Naruto, mesmo exausto, se recusa a lutar para matar. Seu verdadeiro objetivo não é vencer, mas salvar o amigo perdido. Cada golpe que desfere traz consigo lembranças, promessas e a força de todos os que acredita proteger. Seus 50% não representam fraqueza, e sim a compaixão de quem entende que a vitória sem coração é apenas mais uma forma de derrota.<br><br>Sasuke, consumido pelo rancor, lança ataques de poder absurdo — o Amaterasu, o Chidori, o Susanoo. Ele é o reflexo da dor transformada em arma. Contudo, quanto mais destrói, mais vazio se torna. O Vale do Fim volta a ser palco do eterno ciclo entre amizade e rivalidade, ecoando a história de Hashirama e Madara.<br><br>Quando ambos caem, mutilados e sem forças, o verdadeiro clímax não está no sangue derramado, mas no silêncio que o segue. Sasuke entende, enfim, que Naruto nunca lutou contra ele — lutou por ele. Nesse instante, o ódio se desfaz, e o Vale do Fim se transforma em símbolo de renascimento.<br><br>Porque, no fim, Naruto não vence com poder. Ele vence com o coração.' },
+                { id: 3, category: 'serie', title: '🔥 Tóquio: A Alma Rebelde de La Casa de Papel', description: 'Entre o caos e a paixão, Tóquio é o coração pulsante de La Casa de Papel — imperfeita, intensa e absolutamente inesquecível.', full_text: 'Mais do que uma personagem, Tóquio é o símbolo da essência que mantém La Casa de Papel viva. Ela é a narradora, a testemunha e a força emocional por trás de cada tiro, beijo e lágrima. Enquanto o Professor representa a mente estratégica da operação, Tóquio é o coração que a faz bater. Sua voz guia o público, revelando não apenas o plano, mas também a alma de quem o executa.<br><br>Tóquio é puro instinto. Age com o coração antes da razão, erra sem medo e sente tudo com intensidade brutal. Sua impulsividade pode colocar o grupo em risco, mas também é o que impede que a série se torne fria e mecânica. Em meio a planos calculados, ela é o lembrete constante de que a revolução também é feita de emoção, dor e coragem.<br><br>Mais do que isso, Tóquio encarna liberdade. Não aceita ser controlada, nem pelo sistema, nem pelos próprios companheiros. Vive sob suas próprias regras e, quando o mundo tenta silenciá-la, responde com fogo. Sua rebeldia não é capricho — é sobrevivência. Ela luta até o fim, e seu sacrifício final a transforma em lenda.<br><br>Tóquio é contraditória, falha e indomável. Mas é exatamente por isso que é tão humana. Representa a beleza do erro, a força do amor e o poder de se manter fiel a si mesma. Mesmo após sua morte, sua presença ecoa em cada cena, como uma faísca que nunca se apaga.<br><br>Tóquio não é só personagem. Ela é revolução em forma de mulher.' },
+                { id: 4, category: 'filme', title: '💀 Thanos: O Vilão que Quis Salvar o Universo', description: 'Mais que um tirano, Thanos é o reflexo do ideal corrompido — um herói trágico que acreditou destruir para salvar o universo.', full_text: 'Thanos não é o vilão comum movido por poder ou vingança — é a personificação do paradoxo moral. Em sua mente, o sacrifício de metade do universo não é crueldade, mas um ato de salvação. O Titã Louco acredita carregar nos ombros a responsabilidade que ninguém mais teve coragem de assumir: restaurar o equilíbrio da existência. Sua tragédia nasce exatamente daí — da certeza inabalável de estar fazendo o bem.<br><br>Testemunha do colapso de seu planeta natal, Thanos transforma a dor em ideologia. Ele vê o excesso como a verdadeira ameaça: o consumo desenfreado, a multiplicação sem limites, o ego humano em expansão constante. Assim, formula sua solução “lógica”: eliminar metade da vida para permitir que a outra metade prospere. É um raciocínio frio, quase matemático, mas sustentado por uma fé emocionalmente devastadora.<br><br>O que o diferencia de outros vilões é sua coerência. Thanos sente, sofre e age conforme seus princípios. Ao sacrificar Gamora, revela o lado mais humano de sua monstruosidade — lágrimas sinceras de quem ama, mas escolhe a dor pelo que acredita ser o bem maior. Ele é, ao mesmo tempo, o monstro e o mártir da própria convicção.<br><br>Após alcançar o impossível, Thanos não busca trono nem adoração. Ele se retira, destrói as Joias e aceita o anonimato de um dever cumprido. Essa serenidade após o caos revela a dimensão trágica de seu caráter: o herói que salvou o universo apenas para perceber que o destruiu no processo.<br><br>Thanos é o espelho da humanidade quando a razão ignora a empatia — o herói que virou vilão por acreditar demais em sua própria verdade.' },
+                { id: 5, category: 'filme', title: '🏎️ Velozes e Furiosos 5: O Filme que Transformou Corridas em Lenda', description: 'Gravado no Rio, Velozes e Furiosos 5 reinventou a franquia, unindo ação explosiva, emoção genuína e o nascimento definitivo do legado “família”.', full_text: 'Velozes e Furiosos 5: Operação Rio não é apenas mais um capítulo da saga — é o ponto em que tudo mudou. Lançado em 2011, o filme elevou a franquia de rachas de rua para o universo épico dos grandes assaltos globais, misturando adrenalina, drama e uma energia cinematográfica que o transformou no favorito dos fãs. Gravado no Brasil, o longa trouxe ritmo, calor e autenticidade, com o Rio de Janeiro servindo como pano de fundo para uma das maiores reviravoltas da série.<br><br>A história deixa para trás a rivalidade entre polícia e criminosos e mergulha em um “heist movie” empolgante. Dom Toretto (Vin Diesel) e Brian O’Conner (Paul Walker) agora lutam não apenas por velocidade, mas por liberdade — e pela família que escolheram. A chegada de Luke Hobbs (Dwayne “The Rock” Johnson) adiciona nova força à franquia, com confrontos intensos e uma rivalidade lendária que se tornaria marca registrada da saga.<br><br>O ápice, claro, é o roubo do cofre: uma das sequências mais icônicas da história do cinema de ação. Com precisão técnica e ousadia absurda, Dom e Brian arrastam um cofre gigante pelas ruas do Rio em uma cena que combina caos, emoção e perfeição visual.<br><br>Mas o que realmente faz Operação Rio brilhar é o equilíbrio entre espetáculo e sentimento. Entre explosões e perseguições, há espaço para amor, lealdade e redenção. É aqui que o conceito de “família” ganha peso real — não como palavra, mas como filosofia.<br><br>No fim, Velozes e Furiosos 5 é mais do que o melhor filme da saga. É o momento em que velocidade virou legado.' },
+                { id: 6, category: 'filme', title: '⚡ Os 10 Bruxos Mais Poderosos de Harry Potter', description: 'De Dumbledore a Hermione, descubra quem realmente domina o universo bruxo — não apenas em poder, mas em sabedoria, coragem e impacto eterno.', full_text: 'O universo de Harry Potter é repleto de personagens marcantes, mas apenas alguns alcançaram o verdadeiro domínio da magia. Este ranking reúne os 10 bruxos mais poderosos, equilibrando força, inteligência e influência. No topo, está Alvo Dumbledore, o mago que todos temem e respeitam. Seu domínio absoluto sobre transfiguração, duelos e alquimia o torna o maior de sua era — o único capaz de derrotar Gellert Grindwald, o terceiro da lista, cujo carisma e ideologia sombria quase subjugaram o mundo bruxo.<br><br>Em segundo lugar, Lord Voldemort representa o ápice da magia das trevas. Gênio cruel e obcecado pela imortalidade, ele desafia até a própria morte — mas cai diante de algo que jamais compreenderia: o amor. E é justamente esse poder que ele subestima em Harry Potter, o quarto colocado. Apesar de jovem e inexperiente, Harry prova que coragem e sacrifício podem superar qualquer feitiço.<br><br>Severus Snape, o quinto, é o mestre da sutileza — duelista, espião e mago de talentos incomparáveis. Logo atrás, Minerva McGonagall brilha como guerreira e estrategista, símbolo de lealdade e disciplina. A sétima posição pertence à insana e letal Bellatrix Lestrange, o terror dos duelos.<br><br>Completando o top 10 estão Remus Lupin, sábio e justo; Sirius Black, audacioso e leal; e Hermione Granger, cuja genialidade supera qualquer limitação de poder bruto.<br><br>Esses dez nomes representam o equilíbrio entre poder e propósito. Uns lutaram pela dominação, outros pela esperança. Mas todos deixaram marcas profundas na história da magia.<br><br>No fim, mais do que força, o verdadeiro poder está naquilo que cada um escolhe proteger.' },
+            ];
+            
+            let postsData = [...originalPosts];
+            const narutoPostTemplate = originalPosts.find(p => p.id === 2);
+            for (let i = 0; i < 15; i++) {
+                postsData.push({ ...narutoPostTemplate, id: postsData.length + 1, title: `Clone ${i+1}: ${narutoPostTemplate.title}` });
+            }
+
+            const homeScreen = document.getElementById('home-screen');
+            const postsScreen = document.getElementById('posts-screen');
+            const quizScreen = document.getElementById('quiz-screen');
+            const singlePostScreen = document.getElementById('single-post-screen');
+            const aboutScreen = document.getElementById('about-screen');
+            const privacyScreen = document.getElementById('privacy-screen');
+            const menuIcon = document.querySelector('.menu-icon');
+            const sideMenu = document.querySelector('.side-menu');
+            const postsGridContainer = document.getElementById('posts-grid-container');
+            const paginationControls = document.getElementById('pagination-controls');
+            const searchInput = document.getElementById('search-input');
+            let currentPage = 1;
+            const postsPerPage = 9;
+            let previousScreen = homeScreen;
+            
+            function showScreen(screenToShow) {
+                document.querySelectorAll('main > div').forEach(screen => screen.classList.add('hidden'));
+                screenToShow.classList.remove('hidden');
+                sideMenu.classList.remove('open');
+                window.scrollTo(0, 0);
+            }
+
+            function renderContent(page = 1) {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredPosts = postsData.filter(post => 
+                    post.title.toLowerCase().includes(searchTerm)
+                );
+                renderPagination(filteredPosts);
+                renderPosts(page, filteredPosts);
+            }
+            
+            function renderPosts(page, posts) {
+                currentPage = page;
+                postsGridContainer.innerHTML = '';
+                const startIndex = (page - 1) * postsPerPage;
+                const postsToRender = posts.slice(startIndex, startIndex + postsPerPage);
+                postsToRender.forEach(post => {
+                    const imagePath = post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png';
+                    postsGridContainer.innerHTML += `
+                        <div class="card">
+                            <img src="${imagePath}" alt="Destaque" class="card-image">
+                            <div class="card-content">
+                                <h3 class="card-title">${post.title}</h3>
+                                <p class="card-description">${post.description}</p>
+                                <button class="card-button" data-post-id="${post.id}">Ler Mais</button>
+                            </div>
+                        </div>`;
+                });
+                addEventListenersToCardButtons();
+            }
+
+            function renderPagination(posts) {
+                const pageCount = Math.ceil(posts.length / postsPerPage);
+                paginationControls.innerHTML = '';
+                for (let i = 1; i <= pageCount; i++) {
+                    paginationControls.innerHTML += `<button class="page-button ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+                }
+                document.querySelectorAll('.page-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const page = parseInt(button.dataset.page);
+                        renderContent(page);
+                    });
+                });
+            }
+
+            function displayPost(postId) {
+                previousScreen = document.querySelector('main > div:not(.hidden)');
+                const post = postsData.find(p => p.id == postId);
+                if (!post) return;
+                const imagePath = post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png';
+                singlePostScreen.innerHTML = `
+                    <button class="card-button" id="back-button"> &lt; Voltar</button>
+                    <h1 class="text-page-title">${post.title}</h1>
+                    <img src="${imagePath}" alt="Imagem de Destaque do Post" class="text-page-image">
+                    <div class="text-page-content"><p>${post.full_text.replace(/\n/g, '<br><br>')}</p></div>`;
+                document.getElementById('back-button').addEventListener('click', () => showScreen(previousScreen || homeScreen));
+                showScreen(singlePostScreen);
+            }
+            
+            function addEventListenersToCardButtons() {
+                document.querySelectorAll('.card-button[data-post-id]').forEach(button => {
+                    const newButton = button.cloneNode(true);
+                    button.parentNode.replaceChild(newButton, button);
+                    newButton.addEventListener('click', () => {
+                        displayPost(parseInt(newButton.dataset.postId));
+                    });
+                });
+            }
+            addEventListenersToCardButtons();
+
+            menuIcon.addEventListener('click', () => sideMenu.classList.toggle('open'));
+            document.getElementById('logo-home').addEventListener('click', () => showScreen(homeScreen));
+            document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showScreen(homeScreen); });
+            document.getElementById('nav-posts').addEventListener('click', (e) => {
+                e.preventDefault();
+                showScreen(postsScreen);
+                searchInput.value = '';
+                renderContent(1);
+            });
+            document.getElementById('quiz-card-home').addEventListener('click', () => showScreen(quizScreen));
+            document.getElementById('nav-about').addEventListener('click', (e) => { e.preventDefault(); showScreen(aboutScreen); });
+            document.getElementById('nav-privacy').addEventListener('click', (e) => { e.preventDefault(); showScreen(privacyScreen); });
+            document.querySelectorAll('.theme-dot').forEach(dot => {
+                dot.addEventListener('click', () => { document.body.dataset.theme = dot.dataset.theme; });
+            });
+            
+            searchInput.addEventListener('input', () => {
+                renderContent(1);
+            });
+
+            document.addEventListener('click', (event) => {
+                const isClickInsideMenu = sideMenu.contains(event.target);
+                const isClickOnMenuIcon = menuIcon.contains(event.target);
+                if (sideMenu.classList.contains('open') && !isClickInsideMenu && !isClickOnMenuIcon) {
+                    sideMenu.classList.remove('open');
+                }
+            });
+            
+             const characterOptions = document.getElementById('quiz-monica-container');
+             const characterButtons = document.querySelectorAll('.character-btn');
+             const correctCharacter = 'monica';
+             characterOptions.addEventListener('click', (event) => {
+                 if (event.target.tagName === 'BUTTON' && !event.target.disabled) {
+                     const chosenButton = event.target;
+                     const chosenCharacter = chosenButton.dataset.char;
+                     characterButtons.forEach(button => button.disabled = true);
+                     if (chosenCharacter === correctCharacter) { chosenButton.classList.add('btn-correct'); setTimeout(() => alert('Parabéns, você acertou!'), 300); } else { chosenButton.classList.add('btn-incorrect'); const correctButton = document.querySelector(`.character-btn[data-char="${correctCharacter}"]`); correctButton.classList.add('btn-correct'); setTimeout(() => alert('Que pena, você errou! A resposta era Monica Geller.'), 300); }
+                 }
+             });
+        });
+    </script>
+</body>
+</html>
