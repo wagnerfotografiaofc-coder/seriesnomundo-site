@@ -4,24 +4,31 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// --- LÓGICA DO TEMA (COM MEMÓRIA) ---
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        document.body.dataset.theme = savedTheme;
+    }
+}
+applySavedTheme();
+
 document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
 
+    // --- FUNÇÕES DE RENDERIZAÇÃO ---
     function renderCardGrid(containerId, items, type) {
         const gridContainer = document.getElementById(containerId);
         if (!gridContainer) return;
-
         gridContainer.innerHTML = '';
         if (!items || items.length === 0) {
             gridContainer.innerHTML = `<p style="grid-column: 1 / -1;">Nenhum item encontrado.</p>`;
             return;
         }
-
         items.forEach(item => {
             const isPost = type === 'post';
             const imagePath = item.image_url || (isPost ? (item.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png') : 'imagens/2.png');
             const link = isPost ? `post.html?id=${item.id}` : `play-quiz.html?id=${item.id}`;
-            
             gridContainer.innerHTML += `
                 <div class="card">
                     <a href="${link}" class="card-link-wrapper">
@@ -29,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card-content">
                             <h3 class="card-title">${item.title}</h3>
                             <p class="card-description">${item.description}</p>
+                            <span class="card-button">${isPost ? 'Ler Mais' : 'Jogar Agora'}</span>
                         </div>
                     </a>
                 </div>`;
@@ -38,12 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPagination(containerId, page, pageCount, category) {
         const paginationContainer = document.getElementById(containerId);
         if (!paginationContainer) return;
-        
         paginationContainer.innerHTML = '';
         for (let i = 1; i <= pageCount; i++) {
             paginationContainer.innerHTML += `<button class="page-button ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
         }
-        
         document.querySelectorAll('.page-button').forEach(button => {
             button.addEventListener('click', () => {
                 loadPostsPage(category, parseInt(button.dataset.page));
@@ -51,14 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
         const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
         const { data: featuredSeries } = await supabaseClient.from('posts').select('*').eq('category', 'serie').eq('is_featured', true).limit(3);
         const { data: featuredQuiz } = await supabaseClient.from('quizzes').select('*').eq('is_featured', true).limit(1);
 
         renderCardGrid('filmes-destaque-grid', featuredFilmes, 'post');
-        renderCardGrid('series-destaque-grid', featuredSeries, 'post');
-        if(featuredQuiz) renderCardGrid('quiz-destaque-grid', featuredQuiz, 'quiz');
+        renderCardGrid('series-destaque-grid', featuredSeries, 'post'); // LINHA CORRIGIDA
+        if (featuredQuiz && featuredQuiz.length > 0) { 
+            renderCardGrid('quiz-destaque-grid', featuredQuiz, 'quiz');
+        } else {
+            const quizContainer = document.getElementById('quiz-destaque-grid');
+            if(quizContainer) quizContainer.innerHTML = `<p style="grid-column: 1 / -1;">Nenhum quiz em destaque no momento.</p>`;
+        }
     }
 
     async function loadPostsPage(category, page = 1) {
@@ -87,17 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: post, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
         if (error) { document.body.innerHTML = '<h1>Erro ao carregar o post.</h1>'; }
         else {
-            document.title = `${post.title} - SERIES NO MUNDO`;
+            document.title = `${post.title} - SeriesNoMundo`;
             const imagePath = post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png');
             document.getElementById('post-container').innerHTML = `
+                <button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button>
                 <h1 class="text-page-title">${post.title}</h1>
                 <img src="${imagePath}" alt="${post.title}" class="text-page-image">
-                <div class="text-page-content">${post.content}</div>
-
-            `;
+                <div class="text-page-content">${post.content}</div>`;
+            document.getElementById('back-button').addEventListener('click', () => { history.back(); });
         }
     }
 
+    // --- INICIALIZAÇÃO E EVENT LISTENERS GERAIS ---
     if (pagePath === 'index.html' || pagePath === '') { loadHomePage(); }
     else if (pagePath === 'filmes.html') { loadPostsPage('filme'); document.getElementById('search-input').addEventListener('input', () => loadPostsPage('filme')); }
     else if (pagePath === 'series.html') { loadPostsPage('serie'); document.getElementById('search-input').addEventListener('input', () => loadPostsPage('serie')); }
@@ -113,6 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     document.querySelectorAll('.theme-dot').forEach(dot => {
-        dot.addEventListener('click', () => { document.body.dataset.theme = dot.dataset.theme; });
+        dot.addEventListener('click', () => { 
+            const theme = dot.dataset.theme;
+            document.body.dataset.theme = theme;
+            localStorage.setItem('theme', theme);
+        });
     });
 });
