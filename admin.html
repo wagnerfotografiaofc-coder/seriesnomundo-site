@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - SeriesNoMundo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #1a1a1b; color: #e0e0e0; padding: 20px; max-width: 900px; margin: 0 auto; }
+        h1, h2 { color: #ffffff; border-bottom: 1px solid #3a3a3c; padding-bottom: 10px; margin-bottom: 20px;}
+        ul { list-style: none; padding: 0; }
+        li { background-color: #2a2a2b; padding: 15px 20px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 1.1em; word-break: break-all; }
+        .actions-group button { margin-left: 10px; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; white-space: nowrap; }
+        .edit-btn { background-color: #007bff; color: white; }
+        .delete-btn { background-color: #dc3545; color: white; }
+        .create-btn { background-color: #2f9e44; color: white; padding: 10px 15px; font-size: 1.1em; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 20px; }
+        .form-container { background-color: #2c2c2e; padding: 20px; border-radius: 8px; margin-top: 20px; border: 1px solid #3a3a3c;}
+        .form-container label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-container input, .form-container textarea, .form-container select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #3a3a3c; background-color: #1a1a1b; color: #e0e0e0; font-size: 1em; }
+        .form-container .form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .form-container button { padding: 10px 15px; font-size: 1.1em; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .form-submit-btn { background-color: #007bff; color: white; }
+        .form-cancel-btn { background-color: #6c757d; color: white; }
+        .question-item { background-color: #3a3a3c; padding: 15px; border-radius: 5px; margin-bottom: 15px; position: relative; }
+        .question-item .delete-question-btn { position: absolute; top: 5px; right: 5px; background-color: #8b2c37; color:white; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-weight:bold; line-height:20px; text-align:center;}
+        .question-item label { font-size: 0.9em; }
+        .answer-group { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .answer-group input[type="radio"], .answer-group input[type="text"] { flex-grow: 1; }
+        .answer-group input[type="radio"] { flex-grow: 0; width: auto; }
+        hr { border-color: #3a3a3c; margin: 40px 0 20px 0; border-style: solid; border-width: 1px 0 0 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Painel Administrativo</h1>
+    <hr>
+    <h2>Meus Posts</h2>
+    <button class="create-btn" id="show-post-form-btn">Criar Novo Post</button>
+    <form id="post-form" class="hidden form-container">
+        <h2 id="post-form-title">Criar Novo Post</h2>
+        <input type="hidden" id="post-id">
+        <label for="post-title">Título:</label><input type="text" id="post-title" required>
+        <label for="post-description">Descrição (Resumo):</label><textarea id="post-description" rows="3" required></textarea>
+        <label for="post-content">Conteúdo Completo:</label><textarea id="post-content" rows="10" required></textarea>
+        <label for="post-category">Categoria:</label>
+        <select id="post-category" required><option value="" disabled selected>-- Escolha --</option><option value="serie">Série</option><option value="filme">Filme</option></select>
+        <div><input type="checkbox" id="post-is_featured" style="width: auto; margin-right: 5px;"><label for="post-is_featured" style="display: inline;">Destaque na Home?</label></div>
+        <hr style="margin: 20px 0;"><div class="form-actions"><button type="button" class="form-cancel-btn" id="post-form-cancel-btn">Cancelar</button><button type="submit" class="form-submit-btn">Salvar Post</button></div>
+    </form>
+    <ul id="posts-list"></ul>
+    <hr>
+    <h2>Meus Quizzes</h2>
+    <button class="create-btn" id="show-quiz-form-btn">Criar Novo Quiz</button>
+    <form id="quiz-form" class="hidden form-container">
+        <h2 id="quiz-form-title">Criar Novo Quiz</h2>
+        <input type="hidden" id="quiz-id">
+        <label for="quiz-title">Título do Quiz:</label><input type="text" id="quiz-title" required>
+        <label for="quiz-description">Descrição do Quiz:</label><textarea id="quiz-description" rows="3" required></textarea>
+        <label for="quiz-type">Tipo de Quiz:</label>
+        <select id="quiz-type" required>
+            <option value="" disabled selected>-- Selecione o tipo --</option>
+            <option value="who_am_i">Quem Sou Eu?</option>
+            <option value="personality">Quiz de Personalidade</option>
+            <option value="trivia">Quiz de Conhecimento (Trivia)</option>
+            <option value="association">Jogo de Associação</option>
+            <option value="true_false">Verdadeiro ou Falso</option>
+        </select>
+        <div style="margin-top: 15px;"><input type="checkbox" id="quiz-is_featured" style="width: auto; margin-right: 5px;"><label for="quiz-is_featured" style="display: inline;">Destaque na Home?</label></div>
+        <div id="quiz-questions-wrappers"></div>
+        <hr style="margin: 20px 0;">
+        <div class="form-actions"><button type="button" class="form-cancel-btn" id="quiz-form-cancel-btn">Cancelar</button><button type="submit" class="form-submit-btn">Salvar Quiz</button></div>
+    </form>
+    <ul id="quizzes-list"></ul>
+    <script src="admin.js"></script>
+</body>
+</html>
