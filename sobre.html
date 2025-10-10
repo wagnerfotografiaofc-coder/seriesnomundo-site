@@ -3,17 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quizzes - SeriesNoMundo</title>
+    <title>Sobre Nós - SeriesNoMundo</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="dark">
-    <header class="container">...</header>
-    <div class="side-menu">...</div>
-    <main class="container">
-        <h1 class="section-title">Todos os Quizzes</h1>
-        <div class="card-grid" id="quizzes-grid-container"><p>SOBRE NÓS</p></div>
+    <header class="container">
+        <div class="menu-icon">☰</div>
+        <div class="logo"><a href="index.html" style="color: inherit; text-decoration: none;">SeriesNoMundo</a></div>
+        <div id="theme-switcher">
+            <div class="theme-dot" data-theme="dark" style="background-color: #121213;"></div>
+            <div class="theme-dot" data-theme="light" style="background-color: #f8f9fa;"></div>
+            <div class="theme-dot" data-theme="red" style="background-color: #2b0a0a;"></div>
+        </div>
+    </header>
+    <div class="side-menu">
+        <nav>
+            <ul>
+                <li><a href="index.html">Início</a></li>
+                <li><a href="filmes.html">Filmes</a></li>
+                <li><a href="series.html">Séries</a></li>
+                <li><a href="quizzes.html">Quizzes</a></li>
+            </ul>
+        </nav>
+    </div>
+    <main class="container text-page">
+        <h1 class="text-page-title">Sobre Nós</h1>
+        <div class="text-page-content">
+            <p>Bem-vindo ao SeriesNoMundo, o seu universo de entretenimento sobre filmes, séries e cultura pop!</p>
+            <p>Nascemos da paixão por contar histórias e da vontade de criar um espaço onde fãs pudessem se aprofundar nos universos que tanto amam. Aqui, analisamos personagens, desvendamos teorias e criamos quizzes divertidos para testar seus conhecimentos.</p>
+            <p>Nossa equipe é formada por entusiastas que, assim como você, vibram com cada lançamento, choram com cada despedida e debatem incansavelmente sobre qual herói é o mais forte. Queremos construir uma comunidade onde essa paixão possa ser compartilhada.</p>
+            <p>Obrigado por fazer parte da nossa história. Explore, divirta-se e sinta-se em casa!</p>
+        </div>
     </main>
-    <footer>...</footer>
+    <footer>
+        <div class="container footer-container">
+            <div class="footer-links">
+                <a href="sobre.html">Sobre Nós</a>
+                <a href="privacidade.html">Política de Privacidade</a>
+            </div>
+            <div class="footer-social">
+                <a href="https://www.instagram.com" target="_blank" class="social-button instagram">Instagram</a>
+            </div>
+        </div>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
 </body>
