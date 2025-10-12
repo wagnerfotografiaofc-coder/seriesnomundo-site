@@ -8,8 +8,8 @@
     --cor-destaque: #E8590C;
     --fonte-titulo: 'Montserrat', sans-serif;
     --fonte-corpo: 'Open Sans', sans-serif;
-    --cor-correta: #2f9e44;  /* ADICIONADO */
-    --cor-incorreta: #c92a2a; /* ADICIONADO */
+    --cor-correta: #2f9e44; 
+    --cor-incorreta: #c92a2a; 
 }
 body[data-theme="light"] { --cor-fundo: #f8f9fa; --cor-fundo-card: #ffffff; --cor-borda: #dee2e6; --cor-texto-principal: #495057; --cor-texto-titulo: #212529; }
 body[data-theme="red"] { --cor-fundo: #2b0a0a; --cor-fundo-card: #3d1111; --cor-borda: #611a1a; --cor-texto-principal: #f3d9d9; --cor-texto-titulo: #ffffff; }
@@ -77,34 +77,12 @@ footer { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--cor-bo
 .tf-options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
 .tf-btn { background-color: #333; border: 2px solid var(--cor-borda); color: var(--cor-texto-principal); padding: 20px; font-size: 1.5em; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.2s, background-color 0.2s; }
 .tf-btn:hover:not(:disabled) { transform: scale(1.05); border-color: var(--cor-destaque); }
-.tf-btn.correct { background-color: var(--cor-correta); color: white; border-color: var(--cor-correta); }
-.tf-btn.incorrect { background-color: var(--cor-incorreta); color: white; border-color: var(--cor-incorreta); }
-.tf-btn:disabled { cursor: not-allowed; transform: none; }
+.tf-btn.correct, .answer-btn.correct { background-color: var(--cor-correta) !important; color: white !important; border-color: var(--cor-correta) !important; }
+.tf-btn.incorrect, .answer-btn.incorrect { background-color: var(--cor-incorreta) !important; color: white !important; border-color: var(--cor-incorreta) !important; }
+.tf-btn:disabled, .answer-btn:disabled { cursor: not-allowed; transform: none; }
 #result-score { font-size: 2.5em; font-weight: bold; color: var(--cor-destaque); margin-bottom: 20px; }
 
-@media (max-width: 768px) {
-    .logo a {
-        position: static;
-        transform: none;
-        font-size: 1.4em;
-    }
-
-    .section-title {
-        font-size: 2em;
-    }
-}
-
-@media (max-width: 480px) {
-    .logo a {
-        font-size: 1.2em;
-    }
-    .footer-container {
-        flex-direction: column;
-        gap: 25px;
-    }
-}
-/* --- NOVO: ESTILOS DOS BOTÕES DE RESPOSTA (TRIVIA, ETC.) --- */
-
+/* --- ESTILOS DOS BOTÕES DE RESPOSTA (TRIVIA, ETC.) --- */
 .answer-options {
     display: grid;
     grid-template-columns: 1fr;
@@ -130,25 +108,7 @@ footer { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--cor-bo
     color: var(--cor-texto-titulo);
 }
 
-.answer-btn.correct {
-    background-color: var(--cor-correta) !important;
-    color: white !important;
-    border-color: var(--cor-correta) !important;
-}
-
-.answer-btn.incorrect {
-    background-color: var(--cor-incorreta) !important;
-    color: white !important;
-    border-color: var(--cor-incorreta) !important;
-}
-
-.answer-btn:disabled {
-    cursor: not-allowed;
-}
-/* =============================================== */
-/* --- NOVO: ESTILOS DO JOGO DE ASSOCIAÇÃO --- */
-/* =============================================== */
-
+/* --- ESTILOS DO JOGO DE ASSOCIAÇÃO --- */
 .association-game-area {
     display: flex;
     justify-content: space-around;
@@ -198,3 +158,77 @@ footer { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--cor-bo
 .drop-zone.correct .draggable-item { background-color: var(--cor-correta); border-color: var(--cor-correta); }
 .drop-zone.incorrect { border-color: var(--cor-incorreta); background-color: rgba(201, 42, 42, 0.1); }
 .drop-zone.incorrect .draggable-item { background-color: var(--cor-incorreta); border-color: var(--cor-incorreta); }
+
+/* --- ESTILOS "LEIA TAMBÉM" (SUGESTÕES) --- */
+#read-also-section { 
+    max-width: 1200px; 
+    margin: 60px auto 0 auto; 
+    border-top: 1px solid var(--cor-borda); 
+    padding-top: 20px; 
+}
+.suggestions-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 3 colunas, responsivo */
+    gap: 20px; 
+    margin-top: 20px;
+}
+.suggestion-button { 
+    display: block; /* Faz o link preencher o espaço do grid */
+    background-color: var(--cor-fundo-card); 
+    border: 1px solid var(--cor-borda); 
+    padding: 20px; 
+    border-radius: 8px; 
+    text-decoration: none; 
+    color: var(--cor-texto-principal); 
+    text-align: left; 
+    transition: background-color 0.2s, border-color 0.2s, transform 0.2s; 
+    height: 100%; /* Garante que todos tenham a mesma altura */
+}
+.suggestion-button:hover { 
+    background-color: #2a2a2b; /* Um pouco mais claro no hover */
+    border-color: var(--cor-destaque); 
+    transform: translateY(-3px); /* Efeito de "subir" */
+}
+.suggestion-button h4 { 
+    font-family: var(--fonte-titulo); 
+    color: var(--cor-texto-titulo); 
+    font-size: 1.2em; 
+    margin-bottom: 8px; 
+    line-height: 1.3;
+}
+.suggestion-button p { 
+    font-size: 0.9em; 
+    line-height: 1.5; 
+    color: var(--cor-texto-principal);
+}
+
+
+@media (max-width: 768px) {
+    .logo a {
+        position: static;
+        transform: none;
+        font-size: 1.4em;
+    }
+    .section-title {
+        font-size: 2em;
+    }
+    .suggestions-grid {
+        grid-template-columns: 1fr; /* Em telas menores, uma coluna */
+    }
+}
+
+@media (max-width: 480px) {
+    .logo a {
+        font-size: 1.2em;
+    }
+    .footer-container {
+        flex-direction: column;
+        gap: 25px;
+    }
+    .suggestion-button {
+        padding: 15px; /* Menor padding em telas pequenas */
+    }
+    .suggestion-button h4 {
+        font-size: 1.1em;
+    }
+}

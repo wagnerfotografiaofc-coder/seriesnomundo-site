@@ -13,6 +13,7 @@ applySavedTheme();
 document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
 
+    // --- FUNÇÕES DE RENDERIZAÇÃO ---
     function renderCardGrid(containerId, items, type) {
         const gridContainer = document.getElementById(containerId);
         if (!gridContainer) return;
@@ -39,6 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderSuggestions(containerId, posts) {
+        const gridContainer = document.getElementById(containerId);
+        if (!gridContainer) return;
+        gridContainer.innerHTML = '';
+        posts.forEach(post => {
+            gridContainer.innerHTML += `
+                <a href="post.html?id=${post.id}" class="suggestion-button">
+                    <h4>${post.title}</h4>
+                    <p>${post.description}</p>
+                </a>
+            `;
+        });
+    }
+
     function renderPagination(containerId, page, pageCount, category) {
         const paginationContainer = document.getElementById(containerId);
         if (!paginationContainer) return;
@@ -53,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
         const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
         const { data: featuredSeries } = await supabaseClient.from('posts').select('*').eq('category', 'serie').eq('is_featured', true).limit(3);
@@ -83,17 +99,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadSinglePostPage() {
-        const postId = new URLSearchParams(window.location.search).get('id');
-        if (!postId) { document.body.innerHTML = '<h1>Post não encontrado.</h1>'; return; }
-        const { data: post, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
-        if (error) { document.body.innerHTML = '<h1>Erro ao carregar o post.</h1>'; }
-        else {
-            document.title = `${post.title} - SeriesNoMundo`;
-            const imagePath = post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png');
-            document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image"><div class="text-page-content">${post.content}</div>`;
-            document.getElementById('back-button').addEventListener('click', () => { history.back(); });
-        }
+    const postId = new URLSearchParams(window.location.search).get('id');
+    if (!postId) { document.body.innerHTML = '<h1>Post não encontrado.</h1>'; return; }
+    
+    // 1. Busca o post principal
+    const { data: post, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
+    if (error) { document.body.innerHTML = '<h1>Erro ao carregar o post.</h1>'; return; }
+    
+    document.title = `${post.title} - SeriesNoMundo`;
+    const imagePath = post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png');
+    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image"><div class="text-page-content">${post.content}</div>`;
+    document.getElementById('back-button').addEventListener('click', () => { history.back(); });
+
+    // 2. Lógica de Sugestão por Tags (a parte nova e correta)
+    let suggestions = [];
+    // Primeiro, tenta buscar por tags
+    if (post.tags && post.tags.length > 0) {
+        const { data: tagSuggestions } = await supabaseClient
+            .from('posts')
+            .select('*')
+            .contains('tags', post.tags) // Busca posts que contenham QUALQUER uma das tags
+            .neq('id', post.id)          // Garante que não vai sugerir o próprio post
+            .limit(3);
+        suggestions = tagSuggestions;
     }
+
+    // Se não encontrou sugestões por tag (ou o post não tem tags), usa a busca por categoria como um PLANO B.
+    if (!suggestions || suggestions.length === 0) {
+        const { data: categorySuggestions } = await supabaseClient
+            .from('posts')
+            .select('*')
+            .eq('category', post.category)
+            .neq('id', post.id)
+            .limit(3)
+            .order('created_at', { ascending: false });
+        suggestions = categorySuggestions;
+    }
+
+    // 3. Mostra as sugestões na tela
+    if (suggestions && suggestions.length > 0) {
+        renderSuggestions('suggestions-grid', suggestions);
+        document.getElementById('read-also-section').classList.remove('hidden');
+    } else {
+        document.getElementById('read-also-section').classList.add('hidden');
+    }
+}
     
     async function loadQuizPlayer() {
         const quizId = new URLSearchParams(window.location.search).get('id');
@@ -117,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function renderQuestion() { const question = questions[currentQuestionIndex]; container.innerHTML = `<div class="quiz-container-player"><p>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</p><h2 class="text-page-title">${question.question_text}</h2><div class="tf-options"><button class="tf-btn" data-answer="true">Verdadeiro</button><button class="tf-btn" data-answer="false">Falso</button></div></div>`; document.querySelectorAll('.tf-btn').forEach(button => button.addEventListener('click', handleAnswer)); }
         function handleAnswer(e) { const userAnswer = e.target.dataset.answer === 'true'; const correctAnswer = questions[currentQuestionIndex].is_true; document.querySelectorAll('.tf-btn').forEach(btn => btn.disabled = true); if (userAnswer === correctAnswer) { e.target.classList.add('correct'); score++; } else { e.target.classList.add('incorrect'); const correctButton = document.querySelector(`.tf-btn[data-answer="${correctAnswer}"]`); if (correctButton) { correctButton.classList.add('correct'); } } setTimeout(nextStep, 1500); }
         function nextStep() { currentQuestionIndex++; if (currentQuestionIndex < questions.length) { renderQuestion(); } else { renderFinalResult(); } }
-        function renderFinalResult() { let message = ""; const percentage = (score / questions.length) * 100; if (percentage <= 30) message = "Hmm, precisa estudar mais, hein?"; else if (percentage <= 70) message = "Bom trabalho! Você conhece o básico!"; else if (percentage < 100) message = "Excelente! Você é quase um expert!"; else message = "PERFEITO! Você gabaritou!"; container.innerHTML = `<div class="quiz-container-player"><h2>Quiz Finalizado!</h2><p id="result-score">Você acertou ${score} de ${questions.length}!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`; container.querySelector('#restart-button').addEventListener('click', startQuiz); }
+        function renderFinalResult() { let message = ""; const percentage = (score / questions.length) * 100; if (percentage <= 30) message = "Hmm, precisa estudar mais, hein?"; else if (percentage <= 70) message = "Bom trabalho!"; else if (percentage < 100) message = "Excelente!"; else message = "PERFEITO!"; container.innerHTML = `<div class="quiz-container-player"><h2>Quiz Finalizado!</h2><p id="result-score">Você acertou ${score} de ${questions.length}!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`; container.querySelector('#restart-button').addEventListener('click', startQuiz); }
         function startQuiz() { currentQuestionIndex = 0; score = 0; renderQuestion(); }
         startQuiz();
     }
@@ -150,19 +200,22 @@ document.addEventListener('DOMContentLoaded', () => {
     async function playAssociationQuiz(quiz) {
         const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(answer_text)').eq('quiz_id', quiz.id);
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
-        let score = 0; const container = document.getElementById('quiz-player-container');
-        function renderGame() {
-            const items = questions.map(q => ({ char: q.question_text, trait: q.answers[0].answer_text }));
+        
+        let totalScore = 0; const itemsPerRound = 3; const totalRounds = Math.ceil(questions.length / itemsPerRound); let currentRound = 1; const container = document.getElementById('quiz-player-container');
+        function renderRound(roundNum) {
+            const startIndex = (roundNum - 1) * itemsPerRound; const roundQuestions = questions.slice(startIndex, startIndex + itemsPerRound);
+            if (roundQuestions.length === 0) { renderFinalResult(); return; }
+            const items = roundQuestions.map(q => ({ char: q.question_text, trait: q.answers[0].answer_text }));
             const shuffledTraits = [...items].sort(() => Math.random() - 0.5);
             let charactersHTML = items.map(item => `<div id="char-${item.char.replace(/\s+/g, '-')}" class="draggable-item" draggable="true">${item.char}</div>`).join('');
             let traitsHTML = shuffledTraits.map(item => `<div class="drop-zone" data-correct-char="${item.char}"><span class="trait-text">${item.trait}</span></div>`).join('');
-            container.innerHTML = `<div class="quiz-container-player"><h2 class="text-page-title">${quiz.title}</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
-            addDragDropListeners();
+            container.innerHTML = `<div class="quiz-container-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
+            addDragDropListeners(roundQuestions.length);
         }
-        function addDragDropListeners() {
-            let dropsMade = 0; const draggables = document.querySelectorAll('.draggable-item'); const dropZones = document.querySelectorAll('.drop-zone'); const actionButton = document.getElementById('action-button');
-            draggables.forEach(draggable => { draggable.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', e.target.id); setTimeout(() => e.target.classList.add('dragging'), 0); }); draggable.addEventListener('dragend', () => draggable.classList.remove('dragging')); });
-            dropZones.forEach(zone => {
+        function addDragDropListeners(questionsInRound) {
+            let dropsMade = 0; const actionButton = document.getElementById('action-button');
+            document.querySelectorAll('.draggable-item').forEach(draggable => { draggable.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', e.target.id); setTimeout(() => e.target.classList.add('dragging'), 0); }); draggable.addEventListener('dragend', () => draggable.classList.remove('dragging')); });
+            document.querySelectorAll('.drop-zone').forEach(zone => {
                 zone.addEventListener('dragover', e => { e.preventDefault(); if (!zone.querySelector('.draggable-item')) zone.classList.add('drag-over'); });
                 zone.addEventListener('dragleave', e => e.currentTarget.classList.remove('drag-over'));
                 zone.addEventListener('drop', e => {
@@ -170,30 +223,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const charId = e.dataTransfer.getData('text/plain'); const charElement = document.getElementById(charId);
                     if (e.currentTarget.querySelector('.draggable-item') || !charElement) return;
                     e.currentTarget.appendChild(charElement); dropsMade++;
-                    if (dropsMade === questions.length) { actionButton.classList.remove('hidden'); }
+                    if (dropsMade === questionsInRound) actionButton.classList.remove('hidden');
                 });
             });
             actionButton.addEventListener('click', checkAnswers, { once: true });
         }
         function checkAnswers() {
-            let roundScore = 0;
+            let roundCorrectAnswers = 0;
             document.querySelectorAll('.drop-zone').forEach(zone => {
                 const droppedItem = zone.querySelector('.draggable-item');
-                if (droppedItem && droppedItem.innerText === zone.dataset.correctChar) { zone.classList.add('correct'); roundScore++; }
+                if (droppedItem) droppedItem.draggable = false;
+                if (droppedItem && droppedItem.innerText === zone.dataset.correctChar) { zone.classList.add('correct'); roundCorrectAnswers++; }
                 else { zone.classList.add('incorrect'); }
             });
-            score = roundScore;
+            totalScore += roundCorrectAnswers;
+            document.getElementById('round-score').innerText = `Você acertou ${roundCorrectAnswers} de ${document.querySelectorAll('.drop-zone').length} nesta fase!`;
             const actionButton = document.getElementById('action-button');
-            actionButton.innerText = "Ver Resultado";
-            actionButton.removeEventListener('click', checkAnswers);
-            actionButton.addEventListener('click', renderFinalResult, { once: true });
+            if (currentRound < totalRounds) { actionButton.innerText = "Próxima Fase"; actionButton.addEventListener('click', () => { currentRound++; renderRound(currentRound); }, { once: true });
+            } else { actionButton.innerText = "Ver Resultado Final"; actionButton.addEventListener('click', renderFinalResult, { once: true }); }
         }
         function renderFinalResult() {
-            let message = (score / questions.length) * 100 < 70 ? "Foi quase! Tente de novo." : "Excelente!";
-            container.innerHTML = `<div class="quiz-container-player"><h2>Quiz Finalizado!</h2><p id="result-score">Você acertou ${score} de ${questions.length}!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`;
-            container.querySelector('#restart-button').addEventListener('click', renderGame);
+            const totalPossible = questions.length; let message = (totalScore / totalPossible) * 100 < 70 ? "Foi quase! Tente de novo." : "Excelente!";
+            container.innerHTML = `<div class="quiz-container-player"><h2>Jogo Finalizado!</h2><p id="result-score">Você acertou ${totalScore} de ${totalPossible} no total!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`;
+            container.querySelector('#restart-button').addEventListener('click', startGame);
         }
-        renderGame();
+        function startGame() { currentRound = 1; totalScore = 0; renderRound(currentRound); }
+        startGame();
     }
 
     // --- INICIALIZAÇÃO E EVENT LISTENERS GERAIS ---
