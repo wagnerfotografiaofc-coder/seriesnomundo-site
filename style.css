@@ -17,6 +17,9 @@ body[data-theme="red"] { --cor-fundo: #2b0a0a; --cor-fundo-card: #3d1111; --cor-
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background-color: var(--cor-fundo); color: var(--cor-texto-principal); font-family: var(--fonte-corpo); line-height: 1.6; transition: background-color 0.3s, color 0.3s; }
 .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+main {
+    flex-grow: 1; /* Esta linha faz a mágica de empurrar o rodapé */
+}
 
 header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--cor-borda); position: relative; }
 .logo a { font-family: var(--fonte-titulo); font-weight: 900; font-size: 2em; color: var(--cor-texto-titulo); text-decoration: none; position: absolute;
@@ -56,11 +59,35 @@ h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margi
 .text-page-content { font-size: 1.1em; line-height: 1.8; }
 .text-page-content p { margin-bottom: 20px; }
 
-footer { margin-top: 60px; padding-top: 30px; border-top: 1px solid var(--cor-borda); }
-.footer-container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-.footer-links { display: flex; gap: 30px; }
-.footer-links a { color: var(--cor-texto-principal); text-decoration: none; font-weight: bold; font-size: 1.1em; transition: color 0.2s; }
-.footer-links a:hover { color: var(--cor-destaque); }
+/* --- SEÇÃO DO RODAPÉ (ATUALIZADA) --- */
+footer {
+    margin-top: 80px; /* Aumenta o espaço antes do rodapé */
+    padding: 20px; /* Padding interno */
+    background-color: var(--cor-fundo-card); 
+    border-radius: 30px 30px 0 0; /* Cantos de cima arredondados */
+    border-top: none; /* Remove a linha antiga */
+}
+.footer-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+.footer-links {
+    display: flex;
+    gap: 30px;
+}
+.footer-links a {
+    color: var(--cor-texto-titulo); /* <-- MUDANÇA AQUI */
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: color 0.2s;
+}
+.footer-links a:hover {
+    color: var(--cor-destaque); /* <-- MUDANÇA AQUI */
+}
+
 .social-button { display: inline-block; padding: 10px 20px; border-radius: 7px; color: white; text-decoration: none; font-weight: bold; transition: transform 0.2s; }
 .social-button:hover { transform: scale(1.05); }
 .instagram { background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); }
