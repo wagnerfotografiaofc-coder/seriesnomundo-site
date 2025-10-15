@@ -103,7 +103,10 @@ footer {
 .quiz-container-player { background-color: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 15px; padding: 30px; width: 100%; max-width: 700px; margin: 40px auto; text-align: center; transition: background-color 0.3s; }
 .tf-options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
 .tf-btn { background-color: #333; border: 2px solid var(--cor-borda); color: var(--cor-texto-principal); padding: 20px; font-size: 1.5em; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.2s, background-color 0.2s; }
-.tf-btn:hover:not(:disabled) { transform: scale(1.05); border-color: var(--cor-destaque); }
+.tf-btn:hover:not(:disabled) {  transform: scale(1.05); 
+    border-color: var(--cor-destaque); 
+    background-color: var(--cor-destaque); /* Fundo laranja */
+    color: var(--cor-texto-titulo); /* Texto branco */ }
 .tf-btn.correct, .answer-btn.correct { background-color: var(--cor-correta) !important; color: white !important; border-color: var(--cor-correta) !important; }
 .tf-btn.incorrect, .answer-btn.incorrect { background-color: var(--cor-incorreta) !important; color: white !important; border-color: var(--cor-incorreta) !important; }
 .tf-btn:disabled, .answer-btn:disabled { cursor: not-allowed; transform: none; }
@@ -374,4 +377,22 @@ footer {
     background-color: #1562c2; /* Um pouco mais escuro no hover */
     transform: translateY(-5px) scale(1.02);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+/* --- CORREÇÃO DOS BOTÕES DE QUIZ NO TEMA CLARO --- */
+body[data-theme="light"] .tf-btn,
+body[data-theme="light"] .answer-btn,
+body[data-theme="light"] .draggable-item { /* <-- ADICIONADO AQUI */
+    background-color: var(--cor-destaque); /* Laranja */
+    color: #ffffff; /* Texto branco para contraste */
+    border-color: var(--cor-destaque); /* Borda laranja */
+}
+
+/* Regra adicional para os textos e bordas do Jogo de Associação */
+body[data-theme="light"] .drop-zone {
+    border-color: var(--cor-borda);
+    color: var(--cor-texto-titulo); /* Garante que o texto da frase fique escuro */
+}
+
+body[data-theme="light"] .drop-zone.drag-over {
+    border-color: var(--cor-destaque);
 }
