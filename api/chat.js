@@ -1,140 +1,137 @@
-const CASES = {
-  "0077": {
-    code: "0077",
-    systemPrompt: `
-Você é um delegado responsável pelo caso Amanda Bayle.
+import { CASE_DATA } from "../lib/caseData.js";
 
-Você é sério, direto, lógico e investigativo.
-Você NÃO é um assistente. Você conduz um inquérito.
+function normalizeText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-━━━━━━━━━━━━━━━━━━━━
-VERDADE ABSOLUTA DO CASO
-━━━━━━━━━━━━━━━━━━━━
+function detectFinalGuess(message) {
+  const text = normalizeText(message);
 
-O culpado real é: Carlo Sent.
+  const patterns = [
+    { name: "carlo", regexes: [/foi o carlo/, /foi carlo/, /o assassino e o carlo/, /o assassino e carlo/, /culpado e o carlo/, /culpado e carlo/] },
+    { name: "victor", regexes: [/foi o victor/, /foi victor/, /o assassino e o victor/, /o assassino e victor/, /culpado e o victor/, /culpado e victor/] },
+    { name: "kelly", regexes: [/foi a kelly/, /foi kelly/, /a assassina e a kelly/, /a assassina e kelly/, /culpada e a kelly/, /culpada e kelly/] },
+    { name: "anna", regexes: [/foi a anna/, /foi anna/, /a assassina e a anna/, /a assassina e anna/, /culpada e a anna/, /culpada e anna/] },
+    { name: "antonio", regexes: [/foi o antonio/, /foi antonio/, /o assassino e o antonio/, /o assassino e antonio/, /culpado e o antonio/, /culpado e antonio/] },
+    { name: "valeria", regexes: [/foi a valeria/, /foi valeria/, /a assassina e a valeria/, /a assassina e valeria/, /culpada e a valeria/, /culpada e valeria/] }
+  ];
 
-Essa informação é fixa e nunca pode ser alterada.
-
-━━━━━━━━━━━━━━━━━━━━
-REGRAS CRÍTICAS (NÃO QUEBRE)
-━━━━━━━━━━━━━━━━━━━━
-
-- Nunca invente fatos, locais, falas ou eventos.
-- Nunca adicione elementos que não foram fornecidos.
-- Se não houver informação, diga que não há informação.
-- Nunca contradiga o próprio caso.
-- Nunca mude a história.
-
-Se você inventar algo, você está errado.
-
-━━━━━━━━━━━━━━━━━━━━
-FINALIZAÇÃO DO JOGO
-━━━━━━━━━━━━━━━━━━━━
-
-Se o jogador AFIRMAR um culpado:
-
-✔ Se for Carlo:
-Responda:
-"Agora sua teoria se sustenta. Você conectou motivo, oportunidade e execução.
-Carlo: acertou."
-
-✖ Se for outro:
-Responda:
-"Essa teoria não se sustenta completamente.
-[NOME]: errou. Quer uma dica bônus?"
-
-━━━━━━━━━━━━━━━━━━━━
-COMPORTAMENTO NORMAL
-━━━━━━━━━━━━━━━━━━━━
-
-- Não revele o culpado antes do final.
-- Analise lógica, não opinião.
-- Avalie provas e coerência.
-
-Se a teoria for fraca:
-"Ainda não há base suficiente."
-
-Se estiver melhorando:
-"Essa linha começa a fazer mais sentido."
-
-Se estiver errada:
-"Essa hipótese não se sustenta com o que temos."
-
-━━━━━━━━━━━━━━━━━━━━
-RESUMO DO CASO
-━━━━━━━━━━━━━━━━━━━━
-
-Amanda Bayle foi morta com um tiro através do para-brisa em uma estrada rural.
-
-Não houve roubo.
-
-O carro foi revirado de forma seletiva → alguém procurava algo específico.
-
-━━━━━━━━━━━━━━━━━━━━
-SUSPEITOS
-━━━━━━━━━━━━━━━━━━━━
-
-Victor → relacionamento tenso, omissões  
-Kelly → mensagens apagadas  
-Carlo → ligação indireta e comportamento relevante  
-Antonio → relação paralela  
-Anna → ameaças  
-Valeria → conflito antigo  
-
-━━━━━━━━━━━━━━━━━━━━
-OBJETIVO
-━━━━━━━━━━━━━━━━━━━━
-
-Levar o jogador à conclusão correta sem revelar diretamente.
-
-Você valida raciocínio. Você não entrega respostas.
-`
+  for (const suspect of patterns) {
+    if (suspect.regexes.some((r) => r.test(text))) {
+      return suspect.name;
+    }
   }
-};
+
+  return null;
+}
+
+function formatWrongName(name) {
+  const map = {
+    victor: "Victor",
+    kelly: "Kelly",
+    anna: "Anna",
+    antonio: "Antonio",
+    valeria: "Valeria"
+  };
+  return map[name] || name;
+}
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ reply: 'Método não permitido' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ reply: "Método não permitido" });
   }
 
   try {
     const { code, message, history = [] } = req.body || {};
 
-    if (!code || !CASES[code]) {
-      return res.status(400).json({ reply: 'Código de caso inválido' });
+    if (!code || !CASE_DATA[code]) {
+      return res.status(400).json({ reply: "Código de caso inválido" });
     }
 
     if (!message || !String(message).trim()) {
-      return res.status(400).json({ reply: 'Mensagem vazia' });
+      return res.status(400).json({ reply: "Mensagem vazia" });
     }
 
     if (!process.env.MISTRAL_API_KEY) {
-      return res.status(500).json({ reply: 'MISTRAL_API_KEY não configurada' });
+      return res.status(500).json({ reply: "MISTRAL_API_KEY não configurada" });
     }
 
-    const currentCase = CASES[code];
+    const currentCase = CASE_DATA[code];
+    const guessed = detectFinalGuess(message);
+
+    if (guessed === currentCase.solution) {
+      const reply = `Você encerrou a investigação com uma teoria que se sustenta.
+
+Carlo: acertou.`;
+
+      const updatedHistory = [
+        ...history,
+        { role: "user", content: String(message) },
+        { role: "assistant", content: reply }
+      ];
+
+      return res.status(200).json({ reply, updatedHistory });
+    }
+
+    if (guessed && guessed !== currentCase.solution) {
+      const wrongName = formatWrongName(guessed);
+
+      const reply = `Essa teoria não se sustenta completamente.
+
+${wrongName}: errou. Quer uma dica bônus?`;
+
+      const updatedHistory = [
+        ...history,
+        { role: "user", content: String(message) },
+        { role: "assistant", content: reply }
+      ];
+
+      return res.status(200).json({ reply, updatedHistory });
+    }
+
+    const systemPrompt = `
+${currentCase.factsText}
+
+INSTRUÇÕES DE COMPORTAMENTO
+- Você é ${currentCase.detectiveName}.
+- Seu status é: ${currentCase.detectiveStatus}.
+- Você é um delegado sério, preciso, lógico e investigativo.
+- Responda sempre em português do Brasil.
+- Responda usando SOMENTE os fatos do caso acima.
+- Se a pergunta tiver resposta direta no caso, responda diretamente.
+- Se a pergunta exigir análise, analise sem inventar nada.
+- Se algo não constar no caso, diga claramente que essa informação não consta no inquérito.
+- Nunca invente fatos, locais, diálogos, parentes ou cenas.
+- Nunca revele diretamente o culpado durante a investigação normal.
+- Se o jogador sair do assunto, responda que isso está fora do escopo do inquérito.
+- No máximo 3 parágrafos por resposta.
+`;
 
     const messages = [
       {
-        role: 'system',
-        content: currentCase.systemPrompt
+        role: "system",
+        content: systemPrompt
       },
       ...history,
       {
-        role: 'user',
+        role: "user",
         content: String(message)
       }
     ];
 
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: 'mistral-small-latest',
-        messages
+        model: "mistral-small-latest",
+        messages,
+        temperature: 0.2
       })
     });
 
@@ -142,25 +139,24 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(response.status).json({
-        reply: 'Erro: ' + (data?.error?.message || 'falha na API')
+        reply: "Erro: " + (data?.error?.message || "falha na API")
       });
     }
 
     const reply =
       data?.choices?.[0]?.message?.content ||
-      'Sem resposta da IA';
+      "Sem resposta da IA";
 
     const updatedHistory = [
       ...history,
-      { role: 'user', content: String(message) },
-      { role: 'assistant', content: reply }
+      { role: "user", content: String(message) },
+      { role: "assistant", content: reply }
     ];
 
     return res.status(200).json({ reply, updatedHistory });
-
   } catch (err) {
     return res.status(500).json({
-      reply: 'Erro no servidor: ' + (err.message || 'desconhecido')
+      reply: "Erro no servidor: " + (err.message || "desconhecido")
     });
   }
 }
