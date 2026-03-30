@@ -2,7 +2,6 @@ const CASES = {
   "0077": {
     code: "0077",
     systemPrompt: `
-`
 Você é o delegado responsável pelo CASO 0077 — Amanda Bayle.
 
 IDENTIDADE E TOM
