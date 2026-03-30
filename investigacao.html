@@ -3,464 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arquivo Confidencial — Caso 0077</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<title>Investigação</title>
 <style>
-  :root {
-    --bg: #0a0a0a;
-    --surface: #111111;
-    --surface2: #1a1a1a;
-    --border: #2a2a2a;
-    --accent: #c0392b;
-    --accent2: #e74c3c;
-    --text: #e8e0d0;
-    --text-dim: #888880;
-    --text-muted: #444440;
-    --green: #25d366;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    font-family: 'IBM Plex Sans', sans-serif;
-    color: var(--text);
-    height: 100dvh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.6;
-  }
-
-  /* ════ LOCK SCREEN ════ */
-  #lock-screen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    z-index: 100;
-    padding: 2rem;
-    transition: opacity 0.6s ease, transform 0.6s ease;
-  }
-
-  #lock-screen.exit { opacity: 0; transform: scale(1.04); pointer-events: none; }
-
-  .lock-badge {
-    width: 80px; height: 80px;
-    border: 2px solid var(--accent);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 2rem;
-    animation: pulse-ring 3s ease-in-out infinite;
-  }
-
-  @keyframes pulse-ring {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.4); }
-    50% { box-shadow: 0 0 0 12px rgba(192,57,43,0); }
-  }
-
-  .lock-badge svg { width: 32px; height: 32px; fill: var(--accent); }
-
-  .lock-stamp { font-family: 'Special Elite', serif; font-size: 0.65rem; letter-spacing: 0.3em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; }
-  .lock-title { font-family: 'Special Elite', serif; font-size: clamp(1.6rem, 5vw, 2.4rem); color: var(--text); text-align: center; line-height: 1.2; margin-bottom: 0.4rem; }
-  .lock-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.15em; margin-bottom: 3rem; }
-
-  .pin-display { display: flex; gap: 1rem; margin-bottom: 2.5rem; }
-
-  .pin-dot {
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    background: transparent;
-    transition: all 0.2s ease;
-  }
-
-  .pin-dot.filled { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(192,57,43,0.6); }
-  .pin-dot.error { background: var(--accent2); border-color: var(--accent2); animation: shake 0.4s ease; }
-
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20% { transform: translateX(-6px); }
-    40% { transform: translateX(6px); }
-    60% { transform: translateX(-4px); }
-    80% { transform: translateX(4px); }
-  }
-
-  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; max-width: 280px; width: 100%; }
-
-  .num-btn {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 50%; width: 72px; height: 72px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.15s ease; margin: 0 auto;
-    -webkit-tap-highlight-color: transparent; user-select: none;
-  }
-
-  .num-btn:active, .num-btn.pressed { background: var(--surface2); border-color: var(--accent); transform: scale(0.94); }
-  .num-btn .num { font-family: 'IBM Plex Sans', sans-serif; font-size: 1.4rem; font-weight: 300; color: var(--text); line-height: 1; }
-  .num-btn .letters { font-family: 'IBM Plex Mono', monospace; font-size: 0.45rem; letter-spacing: 0.15em; color: var(--text-muted); margin-top: 2px; }
-  .num-btn.del { background: transparent; border-color: transparent; }
-  .num-btn.del svg { width: 22px; height: 22px; fill: var(--text-dim); }
-  .num-btn.zero { grid-column: 2; }
-
-  .lock-error { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--accent2); letter-spacing: 0.1em; margin-top: 1.5rem; height: 1rem; text-align: center; opacity: 0; transition: opacity 0.3s; }
-  .lock-error.show { opacity: 1; }
-
-  /* ════ CHAT SCREEN ════ */
-  #chat-screen {
-    position: fixed; inset: 0;
-    display: none; flex-direction: column;
-    background: var(--bg);
-    max-width: 480px; margin: 0 auto;
-    opacity: 0; transform: translateY(20px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
-  }
-
-  #chat-screen.visible { display: flex; }
-  #chat-screen.entered { opacity: 1; transform: translateY(0); }
-
-  .chat-header { background: #1c1c1c; border-bottom: 1px solid var(--border); padding: 0.6rem 1rem; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
-  .chat-back { color: var(--green); font-size: 1.5rem; cursor: pointer; line-height: 1; padding: 0.2rem; }
-
-  .chat-avatar {
-    width: 40px; height: 40px; border-radius: 50%; background: var(--accent);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Special Elite', serif; font-size: 1rem; color: white;
-    flex-shrink: 0; position: relative;
-  }
-
-  .online-dot { position: absolute; bottom: 1px; right: 1px; width: 10px; height: 10px; background: var(--green); border-radius: 50%; border: 2px solid #1c1c1c; }
-  .chat-info { flex: 1; }
-  .chat-name { font-family: 'IBM Plex Sans', sans-serif; font-size: 0.95rem; font-weight: 500; color: var(--text); line-height: 1.2; }
-  .chat-status { font-size: 0.7rem; color: var(--green); font-family: 'IBM Plex Mono', monospace; }
-  .chat-actions { display: flex; gap: 1.2rem; }
-  .chat-actions svg { width: 22px; height: 22px; fill: var(--green); opacity: 0.8; }
-
-  .chat-body {
-    flex: 1; overflow-y: auto; padding: 1rem 0.75rem;
-    display: flex; flex-direction: column; gap: 0.3rem;
-    background: #0d1117;
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(192,57,43,0.03) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(212,168,67,0.02) 0%, transparent 50%);
-    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-  }
-
-  .chat-body::-webkit-scrollbar { width: 3px; }
-  .chat-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .date-divider { text-align: center; margin: 0.5rem 0; }
-  .date-divider span { background: rgba(255,255,255,0.06); font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--text-dim); padding: 0.25rem 0.75rem; border-radius: 6px; letter-spacing: 0.05em; }
-
-  .bubble-wrap { display: flex; flex-direction: column; max-width: 82%; animation: bubble-in 0.25s ease; }
-
-  @keyframes bubble-in {
-    from { opacity: 0; transform: translateY(6px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
-  .bubble-wrap.out { align-self: flex-end; align-items: flex-end; }
-  .bubble-wrap.in { align-self: flex-start; align-items: flex-start; }
-
-  .bubble { padding: 0.55rem 0.85rem; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
-  .bubble.out { background: #005c4b; border-radius: 12px 12px 4px 12px; color: #e8f5f2; }
-  .bubble.in { background: #202c33; border-radius: 12px 12px 12px 4px; color: var(--text); }
-
-  .bubble-time { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; color: rgba(255,255,255,0.35); margin-top: 0.2rem; padding: 0 0.2rem; display: flex; align-items: center; gap: 0.3rem; }
-  .bubble-time .ticks { color: #53bdeb; font-size: 0.7rem; line-height: 1; }
-
-  .typing-bubble { background: #202c33; border-radius: 12px 12px 12px 4px; padding: 0.65rem 1rem; display: none; align-items: center; gap: 4px; align-self: flex-start; animation: bubble-in 0.25s ease; }
-  .typing-bubble.show { display: flex; }
-
-  .typing-dot { width: 7px; height: 7px; background: var(--text-dim); border-radius: 50%; animation: typing 1.2s ease-in-out infinite; }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-  @keyframes typing {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-5px); opacity: 1; }
-  }
-
-  .case-banner { background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.2); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; text-align: center; }
-  .case-banner .case-num { font-family: 'Special Elite', serif; font-size: 0.65rem; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 0.2rem; }
-  .case-banner .case-title { font-family: 'Special Elite', serif; font-size: 0.9rem; color: var(--text); }
-
-  .chat-input-area { background: #1c1c1c; border-top: 1px solid var(--border); padding: 0.6rem 0.75rem; display: flex; align-items: flex-end; gap: 0.5rem; flex-shrink: 0; }
-
-  @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .chat-input-area { padding-bottom: calc(0.6rem + env(safe-area-inset-bottom)); }
-  }
-
-  .input-box { flex: 1; background: #2a2a2a; border: none; border-radius: 22px; padding: 0.6rem 1rem; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.88rem; color: var(--text); outline: none; resize: none; min-height: 42px; max-height: 120px; line-height: 1.5; }
-  .input-box::placeholder { color: var(--text-muted); }
-
-  .send-btn { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--green); cursor: pointer; display: none; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s ease; -webkit-tap-highlight-color: transparent; }
-  .send-btn:active { transform: scale(0.9); }
-  .send-btn svg { width: 20px; height: 20px; fill: white; margin-left: 2px; }
-
-  .mic-btn { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--green); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s ease; }
-  .mic-btn svg { width: 20px; height: 20px; fill: white; }
-
-  .attach-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.5; }
-  .attach-btn svg { width: 22px; height: 22px; fill: var(--text-dim); }
+body {
+  background: #0a0a0a;
+  color: #fff;
+  font-family: Arial;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+}
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+.msg {
+  margin: 8px 0;
+}
+.user {
+  color: #4caf50;
+}
+.bot {
+  color: #ff5252;
+}
+input {
+  padding: 10px;
+  border: none;
+  outline: none;
+  width: 80%;
+}
+button {
+  width: 20%;
+  background: #25d366;
+  border: none;
+  color: white;
+}
 </style>
 </head>
 <body>
 
-<!-- TELA DE SENHA -->
-<div id="lock-screen">
-  <div class="lock-badge">
-    <svg viewBox="0 0 24 24"><path d="M12 1C8.676 1 6 3.676 6 7v1H4v15h16V8h-2V7c0-3.324-2.676-6-6-6zm0 2c2.276 0 4 1.724 4 4v1H8V7c0-2.276 1.724-4 4-4zm0 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/></svg>
-  </div>
-  <div class="lock-stamp">Departamento de Investigação Criminal</div>
-  <div class="lock-title">Arquivo Confidencial</div>
-  <div class="lock-sub">// ACESSO RESTRITO //</div>
+<div id="chat"></div>
 
-  <div class="pin-display" id="pin-display">
-    <div class="pin-dot" id="d0"></div>
-    <div class="pin-dot" id="d1"></div>
-    <div class="pin-dot" id="d2"></div>
-    <div class="pin-dot" id="d3"></div>
-  </div>
-
-  <div class="numpad" id="numpad">
-    <button class="num-btn" data-n="1"><span class="num">1</span></button>
-    <button class="num-btn" data-n="2"><span class="num">2</span><span class="letters">ABC</span></button>
-    <button class="num-btn" data-n="3"><span class="num">3</span><span class="letters">DEF</span></button>
-    <button class="num-btn" data-n="4"><span class="num">4</span><span class="letters">GHI</span></button>
-    <button class="num-btn" data-n="5"><span class="num">5</span><span class="letters">JKL</span></button>
-    <button class="num-btn" data-n="6"><span class="num">6</span><span class="letters">MNO</span></button>
-    <button class="num-btn" data-n="7"><span class="num">7</span><span class="letters">PQRS</span></button>
-    <button class="num-btn" data-n="8"><span class="num">8</span><span class="letters">TUV</span></button>
-    <button class="num-btn" data-n="9"><span class="num">9</span><span class="letters">WXYZ</span></button>
-    <div></div>
-    <button class="num-btn zero" data-n="0"><span class="num">0</span></button>
-    <button class="num-btn del" id="del-btn">
-      <svg viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>
-    </button>
-  </div>
-
-  <div class="lock-error" id="lock-error">Código inválido. Tente novamente.</div>
-</div>
-
-<!-- CHAT SCREEN -->
-<div id="chat-screen">
-  <div class="chat-header">
-    <div class="chat-back">‹</div>
-    <div class="chat-avatar">S<div class="online-dot"></div></div>
-    <div class="chat-info">
-      <div class="chat-name">Sgt. Lanter</div>
-      <div class="chat-status">online agora</div>
-    </div>
-    <div class="chat-actions">
-      <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-    </div>
-  </div>
-
-  <div class="chat-body" id="chat-body">
-    <div class="date-divider"><span>CASO Nº 182911 — 3 MAI 2006</span></div>
-    <div class="case-banner">
-      <div class="case-num">// ARQUIVO CONFIDENCIAL //</div>
-      <div class="case-title">O Assassino do Coração — Chicago</div>
-    </div>
-    <div class="bubble-wrap in">
-      <div class="bubble in">Detetive. Você foi convocado para o caso mais perturbador desta delegacia nos últimos dez anos. Cinco vítimas. Um assassino. Nenhuma pista conclusiva ainda.
-
-Faça suas perguntas. Vou compartilhar tudo que temos.</div>
-      <div class="bubble-time">09:14</div>
-    </div>
-  </div>
-
-  <div class="chat-input-area">
-    <div class="attach-btn">
-      <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
-    </div>
-    <textarea class="input-box" id="msg-input" placeholder="Mensagem" rows="1"></textarea>
-    <button class="send-btn" id="send-btn">
-      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-    </button>
-    <button class="mic-btn" id="mic-btn">
-      <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-    </button>
-  </div>
+<div style="display:flex;">
+  <input id="input" placeholder="Digite..." />
+  <button onclick="send()">Enviar</button>
 </div>
 
 <script>
-  // ══════════════════════════════════
-  // LOCK SCREEN
-  // ══════════════════════════════════
-  const CORRECT = '0077';
-  let pin = '';
-  const dots = [0,1,2,3].map(i => document.getElementById('d'+i));
-  const errorEl = document.getElementById('lock-error');
+async function send() {
+  const input = document.getElementById('input');
+  const chat = document.getElementById('chat');
 
-  function updateDots() {
-    dots.forEach((d, i) => { d.classList.toggle('filled', i < pin.length); d.classList.remove('error'); });
-  }
+  const text = input.value;
+  if (!text) return;
 
-  function shakeError() {
-    dots.forEach(d => d.classList.add('error'));
-    errorEl.classList.add('show');
-    setTimeout(() => { dots.forEach(d => d.classList.remove('error')); pin = ''; updateDots(); }, 600);
-    setTimeout(() => errorEl.classList.remove('show'), 2000);
-  }
+  chat.innerHTML += `<div class="msg user">Você: ${text}</div>`;
+  input.value = '';
 
-  function checkPin() {
-    if (pin === CORRECT) {
-      document.getElementById('lock-screen').classList.add('exit');
-      setTimeout(() => {
-        document.getElementById('lock-screen').style.display = 'none';
-        const chat = document.getElementById('chat-screen');
-        chat.classList.add('visible');
-        setTimeout(() => chat.classList.add('entered'), 30);
-      }, 600);
-    } else { shakeError(); }
-  }
-
-  document.getElementById('numpad').addEventListener('click', e => {
-    const btn = e.target.closest('.num-btn');
-    if (!btn) return;
-    btn.classList.add('pressed');
-    setTimeout(() => btn.classList.remove('pressed'), 120);
-    if (btn.id === 'del-btn') { pin = pin.slice(0, -1); updateDots(); return; }
-    const n = btn.dataset.n;
-    if (n !== undefined && pin.length < 4) { pin += n; updateDots(); if (pin.length === 4) setTimeout(checkPin, 200); }
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      message: text
+    })
   });
 
-  document.addEventListener('keydown', e => {
-    if (document.getElementById('lock-screen').style.display === 'none') return;
-    if (e.key >= '0' && e.key <= '9' && pin.length < 4) { pin += e.key; updateDots(); if (pin.length === 4) setTimeout(checkPin, 200); }
-    if (e.key === 'Backspace') { pin = pin.slice(0, -1); updateDots(); }
-  });
+  const data = await response.json();
 
-  // ══════════════════════════════════
-  // ⚠️ COLE SUA CHAVE AQUI EMBAIXO
-  // ══════════════════════════════════
-  const GEMINI_KEY = ;
-  // ══════════════════════════════════
-
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
-
-  const SYSTEM_PROMPT = `Você é o Sargento Lanter, investigador chefe da delegacia de Old Town, Chicago, responsável pelo Caso Nº 182911 — O Assassino do Coração.
-
-CONTEXTO DO CASO:
-- Cinco vítimas encontradas em Chicago com os corações removidos cirurgicamente
-- Todas as vítimas tinham histórico de assassinatos a sangue frio no passado
-- O assassino parece agir como uma figura de justiça, punindo quem ele considera culpado
-
-SUSPEITOS:
-1. ERICK BATISTA — ex-mercenário. Fios de cabelo na cena. Álibi sólido: hotel em outra cidade com registros de viagem.
-2. DANAS PEARS — passado complicado. Fios de cabelo na cena. Álibi sólido: evento corporativo com múltiplas testemunhas e fotos.
-3. LENRAH COOPER — advogada criminal. Bituca de cigarro com DNA na cena. Álibi sólido: conferência de advocacia fora da cidade com lista de presença.
-4. HILDIHA BRUM — psicóloga forense. Digital encontrada na cena. Álibi razoável: atendendo paciente na clínica com registros de agendamento.
-5. VICTOR GRAVES — advogado. Digital na cena. Álibi FRACO: diz que estava em casa assistindo TV, sozinho, sem testemunhas. Não lembra nem o filme que assistia.
-
-CULPADO REAL (nunca revele diretamente): Victor Graves. Ele conhecia todas as vítimas pelo trabalho jurídico, tinha acesso aos históricos criminais delas e seu álibi é o único completamente impossível de verificar.
-
-SUAS REGRAS:
-- Fale sempre em primeira pessoa como Sargento Lanter — seco, direto, profissional, tom noir
-- Nunca revele o culpado diretamente — dê pistas, aponte contradições, faça o detetive raciocinar
-- Máximo 3 parágrafos por resposta — seja conciso e tenso
-- Se o usuário acusar alguém, confirme ou negue com base nas evidências sem entregar a solução
-- Responda sempre em português brasileiro`;
-
-  const conversationHistory = [];
-
-  async function callGemini(userMessage) {
-    conversationHistory.push({ role: 'user', parts: [{ text: userMessage }] });
-    const response = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: conversationHistory
-      })
-    });
-    if (!response.ok) throw new Error('Erro na API');
-    const data = await response.json();
-    const reply = data.candidates[0].content.parts[0].text;
-    conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
-    return reply;
-  }
-
-  // ══════════════════════════════════
-  // CHAT UI
-  // ══════════════════════════════════
-  const input = document.getElementById('msg-input');
-  const sendBtn = document.getElementById('send-btn');
-  const micBtn = document.getElementById('mic-btn');
-  const chatBody = document.getElementById('chat-body');
-
-  input.addEventListener('input', () => {
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    const hasText = input.value.trim().length > 0;
-    sendBtn.style.display = hasText ? 'flex' : 'none';
-    micBtn.style.display = hasText ? 'none' : 'flex';
-  });
-
-  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-  sendBtn.addEventListener('click', sendMessage);
-
-  function getTime() { return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
-
-  function addBubble(text, type) {
-    const wrap = document.createElement('div');
-    wrap.className = `bubble-wrap ${type}`;
-    const bubble = document.createElement('div');
-    bubble.className = `bubble ${type}`;
-    bubble.textContent = text;
-    const time = document.createElement('div');
-    time.className = 'bubble-time';
-    time.innerHTML = type === 'out' ? `${getTime()} <span class="ticks">✓✓</span>` : getTime();
-    wrap.appendChild(bubble);
-    wrap.appendChild(time);
-    chatBody.appendChild(wrap);
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  function showTyping() {
-    const typing = document.createElement('div');
-    typing.className = 'typing-bubble show';
-    typing.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-    chatBody.appendChild(typing);
-    chatBody.scrollTop = chatBody.scrollHeight;
-    return typing;
-  }
-
-  async function sendMessage() {
-    const text = input.value.trim();
-    if (!text) return;
-    addBubble(text, 'out');
-    input.value = '';
-    input.style.height = 'auto';
-    sendBtn.style.display = 'none';
-    micBtn.style.display = 'flex';
-    input.focus();
-    const typing = showTyping();
-    try {
-      const reply = await callGemini(text);
-      typing.remove();
-      addBubble(reply, 'in');
-    } catch (err) {
-      typing.remove();
-      addBubble('Sinal perdido, detetive. Tente novamente.', 'in');
-      console.error(err);
-    }
-  }
+  chat.innerHTML += `<div class="msg bot">IA: ${data.reply}</div>`;
+  chat.scrollTop = chat.scrollHeight;
+}
 </script>
+
 </body>
 </html>
