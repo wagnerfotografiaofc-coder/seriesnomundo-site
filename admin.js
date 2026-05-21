@@ -8,6 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // --- SELETORES GERAIS E ESTADO DA APLICAÇÃO ---
     // =================================================================
+    const loginPanel = document.getElementById('login-panel');
+    const loginForm = document.getElementById('login-form');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const loginMessage = document.getElementById('login-message');
+    const adminContent = document.getElementById('admin-content');
+    const authStatus = document.getElementById('auth-status');
+    const logoutBtn = document.getElementById('logout-btn');
+
     const postsList = document.getElementById('posts-list');
     const showPostFormBtn = document.getElementById('show-post-form-btn');
     const postForm = document.getElementById('post-form');
@@ -22,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let editingPostId = null;
     let editingQuizId = null;
+    let adminLoaded = false;
 
     function escapeHTML(value) {
         return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -31,6 +41,49 @@ document.addEventListener('DOMContentLoaded', () => {
             '"': '&quot;',
             "'": '&#39;'
         }[char]));
+    }
+
+    async function loadAdminData() {
+        await getPosts();
+        await getQuizzes();
+        adminLoaded = true;
+    }
+
+    function showLogin() {
+        loginPanel.classList.remove('hidden');
+        adminContent.classList.add('hidden');
+        authStatus.innerText = '';
+        postsList.innerHTML = '';
+        quizzesList.innerHTML = '';
+        adminLoaded = false;
+    }
+
+    async function showAdmin(session) {
+        loginPanel.classList.add('hidden');
+        adminContent.classList.remove('hidden');
+        authStatus.innerText = session?.user?.email ? `Conectado como ${session.user.email}` : '';
+        if (!adminLoaded) {
+            await loadAdminData();
+        }
+    }
+
+    async function handleLogin(event) {
+        event.preventDefault();
+        loginMessage.innerText = 'Entrando...';
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: loginEmail.value.trim(),
+            password: loginPassword.value
+        });
+
+        if (error) {
+            loginMessage.innerText = 'Login invalido. Confira e-mail e senha.';
+            return;
+        }
+
+        loginPassword.value = '';
+        loginMessage.innerText = '';
+        await showAdmin(data.session);
     }
 
     // =================================================================
@@ -313,6 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // --- EVENTOS GERAIS ---
+    loginForm.addEventListener('submit', handleLogin);
+    logoutBtn.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
+        showLogin();
+    });
+
     showPostFormBtn.addEventListener('click', showPostCreateForm);
     postFormCancelBtn.addEventListener('click', hidePostForm);
     postForm.addEventListener('submit', handlePostFormSubmit);
@@ -323,6 +382,19 @@ document.addEventListener('DOMContentLoaded', () => {
     quizForm.addEventListener('submit', handleQuizFormSubmit);
 
     // --- INICIALIZAÇÃO ---
-    getPosts();
-    getQuizzes();
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+            showAdmin(session);
+        } else {
+            showLogin();
+        }
+    });
+
+    supabaseClient.auth.getSession().then(({ data }) => {
+        if (data.session) {
+            showAdmin(data.session);
+        } else {
+            showLogin();
+        }
+    });
 });
