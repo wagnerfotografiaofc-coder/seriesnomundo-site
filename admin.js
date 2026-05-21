@@ -278,6 +278,16 @@ document.addEventListener('DOMContentLoaded', () => {
         else { alert(editingQuizId ? 'Quiz atualizado com sucesso!' : 'Quiz criado com sucesso!'); hideQuizForm(); getQuizzes(); }
     }
     
+    // --- EVENTOS GERAIS ---
+    showPostFormBtn.addEventListener('click', showPostCreateForm);
+    postFormCancelBtn.addEventListener('click', hidePostForm);
+    postForm.addEventListener('submit', handlePostFormSubmit);
+
+    showQuizFormBtn.addEventListener('click', showQuizCreateForm);
+    quizTypeSelect.addEventListener('change', () => handleQuizTypeChange(false));
+    quizFormCancelBtn.addEventListener('click', hideQuizForm);
+    quizForm.addEventListener('submit', handleQuizFormSubmit);
+
     // --- INICIALIZAÇÃO ---
     getPosts();
     getQuizzes();
