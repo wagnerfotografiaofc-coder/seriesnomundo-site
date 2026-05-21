@@ -39,9 +39,57 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 
 .hidden { display: none !important; }
 h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margin-bottom: 20px; font-weight: 700; }
-.home-intro { padding: 36px 0 12px; max-width: 850px; }
-.home-intro h1 { font-size: 2.8em; line-height: 1.15; margin-bottom: 14px; }
-.home-intro p { font-size: 1.12em; max-width: 720px; }
+.home-intro {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 28px;
+    padding: 34px 0 16px;
+    border-bottom: 1px solid var(--cor-borda);
+}
+.home-intro-copy {
+    max-width: 760px;
+}
+.home-kicker {
+    display: inline-block;
+    color: var(--cor-destaque);
+    font-family: var(--fonte-titulo);
+    font-size: 0.82em;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+.home-intro h1 {
+    font-size: 2.35em;
+    line-height: 1.16;
+    margin-bottom: 12px;
+}
+.home-intro p {
+    color: var(--cor-texto-principal);
+    font-size: 1.02em;
+    max-width: 680px;
+}
+.home-intro-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 220px;
+}
+.home-intro-actions a {
+    color: var(--cor-texto-titulo);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    padding: 9px 13px;
+    text-decoration: none;
+    font-weight: 700;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+.home-intro-actions a:hover {
+    border-color: var(--cor-destaque);
+    color: var(--cor-destaque);
+    background-color: var(--cor-fundo-card);
+}
 .section-title { font-size: 2.5em; border-left: 5px solid var(--cor-destaque); padding-left: 15px; margin-top: 40px; margin-bottom: 30px; }
 
 .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; }
@@ -245,8 +293,16 @@ footer {
     .section-title {
         font-size: 2em;
     }
+    .home-intro {
+        align-items: flex-start;
+        flex-direction: column;
+    }
     .home-intro h1 {
         font-size: 2em;
+    }
+    .home-intro-actions {
+        justify-content: flex-start;
+        min-width: 0;
     }
     .suggestions-grid {
         grid-template-columns: 1fr; /* Em telas menores, uma coluna */
