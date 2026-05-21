@@ -104,6 +104,20 @@ document.addEventListener('DOMContentLoaded', () => {
         canonical.setAttribute('href', finalUrl);
     }
 
+    function getTagVariants(tags) {
+        const variants = new Set();
+        (Array.isArray(tags) ? tags : []).forEach(tag => {
+            const cleanTag = String(tag || '').trim();
+            if (!cleanTag) return;
+            const lowerTag = cleanTag.toLowerCase();
+            const titleTag = lowerTag.replace(/\b\w/g, letter => letter.toUpperCase());
+            variants.add(cleanTag);
+            variants.add(lowerTag);
+            variants.add(titleTag);
+        });
+        return [...variants];
+    }
+
     // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
         const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
@@ -157,11 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let suggestions = [];
     // Primeiro, tenta buscar por tags
     if (post.tags && post.tags.length > 0) {
+        const relatedTags = getTagVariants(post.tags);
         const { data: tagSuggestions } = await supabaseClient
             .from('posts')
             .select('*')
-            .contains('tags', post.tags) // Busca posts que contenham QUALQUER uma das tags
+            .overlaps('tags', relatedTags) // Busca posts que tenham pelo menos uma tag em comum
             .neq('id', post.id)          // Garante que não vai sugerir o próprio post
+            .order('created_at', { ascending: false })
             .limit(3);
         suggestions = tagSuggestions;
     }

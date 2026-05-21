@@ -43,6 +43,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }[char]));
     }
 
+    function parseTags(value) {
+        const seenTags = new Set();
+        return String(value || '')
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => {
+                const normalizedTag = tag.toLowerCase();
+                if (!normalizedTag || seenTags.has(normalizedTag)) return false;
+                seenTags.add(normalizedTag);
+                return true;
+            });
+    }
+
+    function formatTags(tags) {
+        return Array.isArray(tags) ? tags.join(', ') : '';
+    }
+
     async function loadAdminData() {
         await getPosts();
         await getQuizzes();
@@ -122,12 +139,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showPostCreateForm() { editingPostId = null; document.getElementById('post-form-title').innerText = 'Criar Novo Post'; postForm.reset(); postForm.classList.remove('hidden'); showPostFormBtn.classList.add('hidden');}
-    function showPostEditForm(post) { editingPostId = post.id; document.getElementById('post-form-title').innerText = `Editando: "${post.title}"`; postForm.reset(); document.getElementById('post-id').value = post.id; document.getElementById('post-title').value = post.title; document.getElementById('post-description').value = post.description; document.getElementById('post-content').value = post.content; document.getElementById('post-category').value = post.category; document.getElementById('post-is_featured').checked = post.is_featured; postForm.classList.remove('hidden'); showPostFormBtn.classList.add('hidden'); }
+    function showPostEditForm(post) {
+        editingPostId = post.id;
+        document.getElementById('post-form-title').innerText = `Editando: "${post.title}"`;
+        postForm.reset();
+        document.getElementById('post-id').value = post.id;
+        document.getElementById('post-title').value = post.title;
+        document.getElementById('post-description').value = post.description;
+        document.getElementById('post-tags').value = formatTags(post.tags);
+        document.getElementById('post-content').value = post.content;
+        document.getElementById('post-category').value = post.category;
+        document.getElementById('post-is_featured').checked = post.is_featured;
+        postForm.classList.remove('hidden');
+        showPostFormBtn.classList.add('hidden');
+    }
     function hidePostForm() { postForm.classList.add('hidden'); showPostFormBtn.classList.remove('hidden'); postForm.reset(); editingPostId = null;}
     
     async function handlePostFormSubmit(event) {
         event.preventDefault();
-        const postData = {title: document.getElementById('post-title').value, description: document.getElementById('post-description').value, content: document.getElementById('post-content').value, category: document.getElementById('post-category').value, is_featured: document.getElementById('post-is_featured').checked,};
+        const postData = {title: document.getElementById('post-title').value, description: document.getElementById('post-description').value, tags: parseTags(document.getElementById('post-tags').value), content: document.getElementById('post-content').value, category: document.getElementById('post-category').value, is_featured: document.getElementById('post-is_featured').checked,};
         let error;
         if (editingPostId) { ({ error } = await supabaseClient.from('posts').update(postData).eq('id', editingPostId)); } else { ({ error } = await supabaseClient.from('posts').insert([postData])); }
         if (error) { alert(`Erro: ${error.message}`); } else { alert(editingPostId ? 'Post atualizado!' : 'Post criado!'); hidePostForm(); getPosts(); }

@@ -75,6 +75,7 @@ h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margi
     flex-wrap: wrap;
     justify-content: flex-end;
     min-width: 220px;
+    max-width: 270px;
 }
 .home-intro-actions a {
     color: var(--cor-texto-titulo);
@@ -303,6 +304,7 @@ footer {
     .home-intro-actions {
         justify-content: flex-start;
         min-width: 0;
+        max-width: none;
     }
     .suggestions-grid {
         grid-template-columns: 1fr; /* Em telas menores, uma coluna */
