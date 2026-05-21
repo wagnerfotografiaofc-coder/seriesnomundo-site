@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(answer_text)').eq('quiz_id', quiz.id).order('id');
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
         
-        let totalScore = 0; const itemsPerRound = 3; const totalRounds = Math.ceil(questions.length / itemsPerRound); let currentRound = 1; const container = document.getElementById('quiz-player-container');
+        let totalScore = 0; const itemsPerRound = Math.max(1, parseInt(quiz.items_per_round, 10) || 6); const totalRounds = Math.ceil(questions.length / itemsPerRound); let currentRound = 1; const container = document.getElementById('quiz-player-container');
         function renderRound(roundNum) {
             const startIndex = (roundNum - 1) * itemsPerRound; const roundQuestions = questions.slice(startIndex, startIndex + itemsPerRound);
             if (roundQuestions.length === 0) { renderFinalResult(); return; }

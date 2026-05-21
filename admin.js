@@ -147,6 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
         quizTypeSelect.disabled = true;
         
         handleQuizTypeChange(true);
+        const itemsPerRoundInput = document.getElementById('quiz-items-per-round');
+        if (itemsPerRoundInput) {
+            itemsPerRoundInput.value = quiz.items_per_round || 6;
+        }
         
         const questionsContainer = document.getElementById('questions-container');
         if (questionsContainer) {
@@ -170,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'true_false': formHTML = `<hr><h3>Perguntas (Verdadeiro ou Falso)</h3><div id="questions-container"></div><button type="button" class="add-question-btn">+ Adicionar</button>`; break;
             case 'trivia': case 'who_am_i': formHTML = `<hr><h3>Perguntas (Múltipla Escolha)</h3><div id="questions-container"></div><button type="button" class="add-question-btn">+ Adicionar</button>`; break;
             case 'personality': formHTML = `<hr><label for="personality-results">Resultados Possíveis (separe por vírgula):</label><input type="text" id="personality-results" placeholder="Ex: Homem de Ferro, Capitão América"><hr><h3>Perguntas</h3><div id="questions-container"></div><button type="button" class="add-question-btn">+ Adicionar</button>`; break;
-            case 'association': formHTML = `<hr><h3>Pares para Associar</h3><div id="questions-container"></div><button type="button" class="add-question-btn">+ Adicionar</button>`; break;
+            case 'association': formHTML = `<hr><label for="quiz-items-per-round">Pares por rodada:</label><input type="number" id="quiz-items-per-round" min="1" max="20" value="6" required><h3>Pares para Associar</h3><div id="questions-container"></div><button type="button" class="add-question-btn">+ Adicionar</button>`; break;
         }
         quizQuestionsWrappers.innerHTML = formHTML;
         const addBtn = document.querySelector('#quiz-form .add-question-btn');
@@ -221,6 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         const quizType = quizTypeSelect.value;
         const quizPayload = { title: document.getElementById('quiz-title').value, description: document.getElementById('quiz-description').value, quiz_type: quizType, is_featured: document.getElementById('quiz-is_featured').checked, };
+        const itemsPerRoundInput = document.getElementById('quiz-items-per-round');
+        if (quizType === 'association' && itemsPerRoundInput) {
+            quizPayload.items_per_round = Math.max(1, parseInt(itemsPerRoundInput.value, 10) || 6);
+        }
         let quizId = editingQuizId;
         
         if (editingQuizId) {
