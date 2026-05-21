@@ -77,6 +77,22 @@ h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margi
     min-width: 220px;
     max-width: 270px;
 }
+.home-mascot {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+.home-mascot img {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    object-position: center 42%;
+    border-radius: 50%;
+    border: 1px solid rgba(232, 89, 12, 0.55);
+    background: #e8590c;
+    box-shadow: 0 14px 26px rgba(0, 0, 0, 0.28), 0 0 0 6px rgba(232, 89, 12, 0.08);
+}
 .home-intro-actions a {
     color: var(--cor-texto-titulo);
     border: 1px solid var(--cor-borda);
@@ -305,6 +321,9 @@ footer {
         justify-content: flex-start;
         min-width: 0;
         max-width: none;
+    }
+    .home-mascot {
+        justify-content: flex-start;
     }
     .suggestions-grid {
         grid-template-columns: 1fr; /* Em telas menores, uma coluna */
