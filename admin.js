@@ -23,6 +23,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingPostId = null;
     let editingQuizId = null;
 
+    function escapeHTML(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
+    }
+
     // =================================================================
     // --- LÓGICA DE POSTS ---
     // =================================================================
@@ -36,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             posts.forEach(post => {
                 const listItem = document.createElement('li');
-                listItem.innerHTML = `<span>${post.title}</span><div class="actions-group"><button class="edit-btn">Editar</button><button class="delete-btn" data-id="${post.id}" data-title="${post.title}">Apagar</button></div>`;
+                listItem.innerHTML = `<span>${escapeHTML(post.title)}</span><div class="actions-group"><button class="edit-btn">Editar</button><button class="delete-btn" data-id="${post.id}" data-title="${escapeHTML(post.title)}">Apagar</button></div>`;
                 postsList.appendChild(listItem);
                 listItem.querySelector('.edit-btn').addEventListener('click', () => showPostEditForm(post));
             });
@@ -83,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             quizzes.forEach(quiz => {
                 const listItem = document.createElement('li');
-                listItem.innerHTML = `<span>${quiz.title} (${quiz.quiz_type})</span><div class="actions-group"><button class="edit-quiz-btn" data-id="${quiz.id}">Editar</button><button class="delete-quiz-btn" data-id="${quiz.id}" data-title="${quiz.title}">Apagar</button></div>`;
+                listItem.innerHTML = `<span>${escapeHTML(quiz.title)} (${escapeHTML(quiz.quiz_type)})</span><div class="actions-group"><button class="edit-quiz-btn" data-id="${quiz.id}">Editar</button><button class="delete-quiz-btn" data-id="${quiz.id}" data-title="${escapeHTML(quiz.title)}">Apagar</button></div>`;
                 quizzesList.appendChild(listItem);
             });
         }
@@ -138,7 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         handleQuizTypeChange(true);
         
-        quizQuestionsWrappers.innerHTML = '<h3>Carregando perguntas...</h3>';
+        const questionsContainer = document.getElementById('questions-container');
+        if (questionsContainer) {
+            questionsContainer.innerHTML = '<p>Carregando perguntas...</p>';
+        }
         const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(*)').eq('quiz_id', quiz.id).order('id');
         if(error) { alert("Erro ao carregar as perguntas deste quiz."); return; }
 
@@ -171,22 +184,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const questionCount = container.children.length;
         const newField = document.createElement('div');
         newField.className = 'question-item';
-        let content = `<button type="button" class="delete-question-btn">X</button><label>Pergunta ${questionCount + 1}:</label><input type="text" class="question-text" value="${data.question_text || ''}" required>`;
+        let content = `<button type="button" class="delete-question-btn">X</button><label>Pergunta ${questionCount + 1}:</label><input type="text" class="question-text" value="${escapeHTML(data.question_text)}" required>`;
         switch(type) {
             case 'true_false': content += `<label>Resposta:</label><select class="is-true"><option value="true" ${data.is_true ? 'selected' : ''}>Verdadeira</option><option value="false" ${!data.is_true ? 'selected' : ''}>Falsa</option></select>`; break;
             case 'trivia': case 'who_am_i':
                 let answersHTML = '';
-                for(let i=0; i<4; i++) { answersHTML += `<div class="answer-group"><input type="radio" name="correct_answer_${questionCount}" value="${i}" ${data.answers && data.answers[i]?.is_correct ? 'checked' : ''} required><input type="text" placeholder="Alternativa ${i+1}" class="answer-text" value="${data.answers && data.answers[i]?.answer_text || ''}"></div>`; }
+                for(let i=0; i<4; i++) { answersHTML += `<div class="answer-group"><input type="radio" name="correct_answer_${questionCount}" value="${i}" ${data.answers && data.answers[i]?.is_correct ? 'checked' : ''} required><input type="text" placeholder="Alternativa ${i+1}" class="answer-text" value="${escapeHTML(data.answers && data.answers[i]?.answer_text)}"></div>`; }
                 content += `<div class="answer-group"><label>Alternativas (marque a correta):</label></div>${answersHTML}`;
                 break;
             case 'personality':
                  const results = document.getElementById('personality-results').value.split(',').map(r => r.trim()).filter(r => r);
                  if (results.length === 0 && (!data.answers || data.answers.length === 0)) { alert('Primeiro, preencha os Resultados Possíveis!'); newField.remove(); return; }
                  let personalityAnswersHTML = '';
-                 for(let i=0; i<3; i++) { personalityAnswersHTML += `<div class="answer-group"><input type="text" placeholder="Texto da Alt. ${i+1}" class="answer-text" value="${data.answers && data.answers[i]?.answer_text || ''}"><select class="points-to">${results.map(r => `<option value="${r}" ${data.answers && data.answers[i]?.points_to === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>`; }
+                 for(let i=0; i<3; i++) { personalityAnswersHTML += `<div class="answer-group"><input type="text" placeholder="Texto da Alt. ${i+1}" class="answer-text" value="${escapeHTML(data.answers && data.answers[i]?.answer_text)}"><select class="points-to">${results.map(r => `<option value="${escapeHTML(r)}" ${data.answers && data.answers[i]?.points_to === r ? 'selected' : ''}>${escapeHTML(r)}</option>`).join('')}</select></div>`; }
                  content += `<div class="answer-group"><label>Alternativas e Pontos:</label></div>${personalityAnswersHTML}`;
                 break;
-            case 'association': content += `<div class="answer-group"><label>Item 2 (para ligar com o texto da pergunta):</label><input type="text" placeholder="Ex: Frase" class="answer-text" value="${data.answers && data.answers[0]?.answer_text || ''}"></div>`; break;
+            case 'association': content += `<div class="answer-group"><label>Item 2 (para ligar com o texto da pergunta):</label><input type="text" placeholder="Ex: Frase" class="answer-text" value="${escapeHTML(data.answers && data.answers[0]?.answer_text)}"></div>`; break;
         }
         newField.innerHTML = content;
         container.appendChild(newField);
@@ -265,12 +278,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
 
             case 'association':
-                const assocQuestions = [...questionsContainer.children].map(item => ({ question_text: item.querySelector('.question-text').value, quiz_id: quizId }));
-                if(assocQuestions.length === 0) break;
-                const { data: createdAQuestions, error: aqError } = await supabaseClient.from('questions').insert(assocQuestions).select();
-                if (aqError) { finalError = aqError; break; }
-                const assocAnswers = [...questionsContainer.children].map((item, qIndex) => ({ answer_text: item.querySelector('.answer-text').value, is_correct: true, question_id: createdAQuestions[qIndex].id }));
-                if(assocAnswers.length > 0) finalError = (await supabaseClient.from('answers').insert(assocAnswers)).error;
+                for (const item of [...questionsContainer.children]) {
+                    const questionText = item.querySelector('.question-text').value;
+                    const answerText = item.querySelector('.answer-text').value;
+                    if (!questionText || !answerText) continue;
+
+                    const { data: createdQuestion, error: aqError } = await supabaseClient
+                        .from('questions')
+                        .insert({ question_text: questionText, quiz_id: quizId })
+                        .select()
+                        .single();
+
+                    if (aqError) { finalError = aqError; break; }
+
+                    const { error: aaError } = await supabaseClient
+                        .from('answers')
+                        .insert({ answer_text: answerText, is_correct: true, question_id: createdQuestion.id });
+
+                    if (aaError) { finalError = aaError; break; }
+                }
                 break;
         }
 

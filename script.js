@@ -198,17 +198,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function playAssociationQuiz(quiz) {
-        const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(answer_text)').eq('quiz_id', quiz.id);
+        const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(answer_text)').eq('quiz_id', quiz.id).order('id');
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
         
         let totalScore = 0; const itemsPerRound = 3; const totalRounds = Math.ceil(questions.length / itemsPerRound); let currentRound = 1; const container = document.getElementById('quiz-player-container');
         function renderRound(roundNum) {
             const startIndex = (roundNum - 1) * itemsPerRound; const roundQuestions = questions.slice(startIndex, startIndex + itemsPerRound);
             if (roundQuestions.length === 0) { renderFinalResult(); return; }
-            const items = roundQuestions.map(q => ({ char: q.question_text, trait: q.answers[0].answer_text }));
+            const items = roundQuestions
+                .filter(q => q.answers && q.answers.length > 0)
+                .map(q => ({ id: String(q.id), char: q.question_text, trait: q.answers[0].answer_text }));
+            if (items.length === 0) { renderFinalResult(); return; }
             const shuffledTraits = [...items].sort(() => Math.random() - 0.5);
-            let charactersHTML = items.map(item => `<div id="char-${item.char.replace(/\s+/g, '-')}" class="draggable-item" draggable="true">${item.char}</div>`).join('');
-            let traitsHTML = shuffledTraits.map(item => `<div class="drop-zone" data-correct-char="${item.char}"><span class="trait-text">${item.trait}</span></div>`).join('');
+            let charactersHTML = items.map(item => `<div id="char-${item.id}" class="draggable-item" draggable="true" data-item-id="${item.id}">${item.char}</div>`).join('');
+            let traitsHTML = shuffledTraits.map(item => `<div class="drop-zone" data-correct-id="${item.id}"><span class="trait-text">${item.trait}</span></div>`).join('');
             container.innerHTML = `<div class="quiz-container-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
             addDragDropListeners(roundQuestions.length);
         }
@@ -233,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.drop-zone').forEach(zone => {
                 const droppedItem = zone.querySelector('.draggable-item');
                 if (droppedItem) droppedItem.draggable = false;
-                if (droppedItem && droppedItem.innerText === zone.dataset.correctChar) { zone.classList.add('correct'); roundCorrectAnswers++; }
+                if (droppedItem && droppedItem.dataset.itemId === zone.dataset.correctId) { zone.classList.add('correct'); roundCorrectAnswers++; }
                 else { zone.classList.add('incorrect'); }
             });
             totalScore += roundCorrectAnswers;
