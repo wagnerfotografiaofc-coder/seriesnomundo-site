@@ -68,6 +68,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updateMetaTag(attribute, key, content) {
+        let tag = document.querySelector(`meta[${attribute}="${key}"]`);
+        if (!tag) {
+            tag = document.createElement('meta');
+            tag.setAttribute(attribute, key);
+            document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content || '');
+    }
+
+    function updatePageMeta({ title, description, url, image, type = 'website' }) {
+        const finalTitle = title || 'Series No Mundo';
+        const finalDescription = description || 'Noticias, listas, curiosidades, teorias e quizzes sobre filmes, series, animes e cultura pop.';
+        const finalUrl = url || window.location.href;
+        const finalImage = image || `${window.location.origin}/imagens/sofa.png`;
+
+        document.title = finalTitle;
+        updateMetaTag('name', 'description', finalDescription);
+        updateMetaTag('property', 'og:type', type);
+        updateMetaTag('property', 'og:title', finalTitle);
+        updateMetaTag('property', 'og:description', finalDescription);
+        updateMetaTag('property', 'og:url', finalUrl);
+        updateMetaTag('property', 'og:image', finalImage);
+        updateMetaTag('name', 'twitter:title', finalTitle);
+        updateMetaTag('name', 'twitter:description', finalDescription);
+        updateMetaTag('name', 'twitter:image', finalImage);
+
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!canonical) {
+            canonical = document.createElement('link');
+            canonical.setAttribute('rel', 'canonical');
+            document.head.appendChild(canonical);
+        }
+        canonical.setAttribute('href', finalUrl);
+    }
+
     // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
         const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
@@ -106,8 +142,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const { data: post, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
     if (error) { document.body.innerHTML = '<h1>Erro ao carregar o post.</h1>'; return; }
     
-    document.title = `${post.title} - SeriesNoMundo`;
     const imagePath = post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png');
+    updatePageMeta({
+        title: `${post.title} | Series No Mundo`,
+        description: post.description,
+        url: window.location.href,
+        image: new URL(imagePath, window.location.origin).href,
+        type: 'article'
+    });
     document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image"><div class="text-page-content">${post.content}</div>`;
     document.getElementById('back-button').addEventListener('click', () => { history.back(); });
 
@@ -151,7 +193,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!quizId) { container.innerHTML = '<h1>Quiz não encontrado.</h1>'; return; }
         const { data: quiz, error } = await supabaseClient.from('quizzes').select('*').eq('id', quizId).single();
         if (error) { container.innerHTML = '<h1>Erro ao carregar o quiz.</h1>'; return; }
-        document.title = `${quiz.title} - SeriesNoMundo`;
+        updatePageMeta({
+            title: `${quiz.title} | Quiz Series No Mundo`,
+            description: quiz.description,
+            url: window.location.href,
+            image: `${window.location.origin}/imagens/sofa.png`
+        });
         switch (quiz.quiz_type) {
             case 'true_false': await playTrueFalseQuiz(quiz); break;
             case 'trivia': case 'who_am_i': await playTriviaQuiz(quiz); break;
