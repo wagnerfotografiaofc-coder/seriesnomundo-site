@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('post-title').value = post.title;
         document.getElementById('post-description').value = post.description;
         document.getElementById('post-tags').value = formatTags(post.tags);
+        document.getElementById('post-video-url').value = post.video_url || '';
         document.getElementById('post-content').value = post.content;
         document.getElementById('post-category').value = post.category;
         document.getElementById('post-is_featured').checked = post.is_featured;
@@ -157,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function handlePostFormSubmit(event) {
         event.preventDefault();
-        const postData = {title: document.getElementById('post-title').value, description: document.getElementById('post-description').value, tags: parseTags(document.getElementById('post-tags').value), content: document.getElementById('post-content').value, category: document.getElementById('post-category').value, is_featured: document.getElementById('post-is_featured').checked,};
+        const postData = {title: document.getElementById('post-title').value, description: document.getElementById('post-description').value, tags: parseTags(document.getElementById('post-tags').value), video_url: document.getElementById('post-video-url').value.trim(), content: document.getElementById('post-content').value, category: document.getElementById('post-category').value, is_featured: document.getElementById('post-is_featured').checked,};
         let error;
         if (editingPostId) { ({ error } = await supabaseClient.from('posts').update(postData).eq('id', editingPostId)); } else { ({ error } = await supabaseClient.from('posts').insert([postData])); }
         if (error) { alert(`Erro: ${error.message}`); } else { alert(editingPostId ? 'Post atualizado!' : 'Post criado!'); hidePostForm(); getPosts(); }

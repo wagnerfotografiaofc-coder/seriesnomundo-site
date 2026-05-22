@@ -124,6 +124,22 @@ h1, h2 { font-family: var(--fonte-titulo); color: var(--cor-texto-titulo); margi
 .text-page { max-width: 800px; margin: 40px auto; }
 .text-page-title { font-size: 3em; line-height: 1.2; margin-bottom: 30px; }
 .text-page-image { height: 400px; width: 100%; border-radius: 10px; margin-bottom: 30px; object-fit: cover; }
+.post-video-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 0 0 30px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--cor-borda);
+}
+.post-video-wrapper iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
 .text-page-content { font-size: 1.1em; line-height: 1.8; }
 .text-page-content p { margin-bottom: 20px; }
 

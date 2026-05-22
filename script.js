@@ -118,6 +118,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...variants];
     }
 
+    function getYouTubeEmbedUrl(videoUrl) {
+        if (!videoUrl) return '';
+
+        try {
+            const url = new URL(videoUrl);
+            const hostname = url.hostname.replace(/^www\./, '');
+            let videoId = '';
+
+            if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+                if (url.pathname === '/watch') videoId = url.searchParams.get('v') || '';
+                else if (url.pathname.startsWith('/shorts/')) videoId = url.pathname.split('/')[2] || '';
+                else if (url.pathname.startsWith('/embed/')) videoId = url.pathname.split('/')[2] || '';
+            } else if (hostname === 'youtu.be') {
+                videoId = url.pathname.split('/')[1] || '';
+            }
+
+            if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) return '';
+            return `https://www.youtube.com/embed/${videoId}`;
+        } catch (error) {
+            return '';
+        }
+    }
+
     // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
         const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
@@ -164,7 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
         image: new URL(imagePath, window.location.origin).href,
         type: 'article'
     });
-    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image"><div class="text-page-content">${post.content}</div>`;
+    const videoEmbedUrl = getYouTubeEmbedUrl(post.video_url);
+    const videoHtml = videoEmbedUrl ? `<div class="post-video-wrapper"><iframe src="${videoEmbedUrl}" title="Trailer oficial de ${post.title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>` : '';
+    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image">${videoHtml}<div class="text-page-content">${post.content}</div>`;
     document.getElementById('back-button').addEventListener('click', () => { history.back(); });
 
     // 2. Lógica de Sugestão por Tags (a parte nova e correta)
