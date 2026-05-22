@@ -495,3 +495,59 @@ body[data-theme="light"] .drop-zone {
 body[data-theme="light"] .drop-zone.drag-over {
     border-color: var(--cor-destaque);
 }
+
+/* --- EXPERIMENTO: CTA EDITORIAL NOS CARDS --- */
+.card-button {
+    align-self: flex-start;
+    position: relative;
+    background-color: transparent;
+    color: var(--cor-texto-titulo);
+    padding: 0 28px 4px 0;
+    border-radius: 0;
+    text-align: left;
+    letter-spacing: 0;
+    font-family: var(--fonte-titulo);
+    font-size: 0.9em;
+    font-weight: 800;
+    text-transform: uppercase;
+    box-shadow: none;
+}
+
+.card-button::after {
+    content: ">";
+    position: absolute;
+    right: 0;
+    top: 0;
+    color: var(--cor-destaque);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.card-button::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 28px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--cor-destaque), rgba(232, 89, 12, 0));
+    transform: scaleX(0.55);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+}
+
+.card:hover .card-button,
+.card-button:hover {
+    background-color: transparent;
+    color: var(--cor-destaque);
+}
+
+.card:hover .card-button::after,
+.card-button:hover::after {
+    transform: translateX(5px);
+}
+
+.card:hover .card-button::before,
+.card-button:hover::before {
+    transform: scaleX(1);
+}
