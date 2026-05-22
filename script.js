@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePageMeta({
         title: `${post.title} | Series No Mundo`,
         description: post.description,
-        url: window.location.href,
+        url: new URL(getPostPagePath(post), window.location.origin).href,
         image: new URL(imagePath, window.location.origin).href,
         type: 'article'
     });
