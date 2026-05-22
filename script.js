@@ -14,6 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
 
     // --- FUNÇÕES DE RENDERIZAÇÃO ---
+    function slugify(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 90) || 'post';
+    }
+
+    function getPostPagePath(post) {
+        return `posts/${post.id}-${slugify(post.title)}.html`;
+    }
+
     function renderCardGrid(containerId, items, type) {
         const gridContainer = document.getElementById(containerId);
         if (!gridContainer) return;
@@ -25,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const isPost = type === 'post';
             const imagePath = item.image_url || (isPost ? (item.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png') : 'imagens/2.png');
-            const link = isPost ? `post.html?id=${item.id}` : `play-quiz.html?id=${item.id}`;
+            const link = isPost ? getPostPagePath(item) : `play-quiz.html?id=${item.id}`;
             gridContainer.innerHTML += `
                 <div class="card">
                     <a href="${link}" class="card-link-wrapper">
@@ -46,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridContainer.innerHTML = '';
         posts.forEach(post => {
             gridContainer.innerHTML += `
-                <a href="post.html?id=${post.id}" class="suggestion-button">
+                <a href="${getPostPagePath(post)}" class="suggestion-button">
                     <h4>${post.title}</h4>
                     <p>${post.description}</p>
                 </a>
