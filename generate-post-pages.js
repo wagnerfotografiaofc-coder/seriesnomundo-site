@@ -206,6 +206,13 @@ function upsertHomeSchema(html) {
     return html.replace('</head>', `${schemaHtml}\n</head>`);
 }
 
+function updateGridPage(fileName, gridId, items, type) {
+    const pagePath = path.join(__dirname, fileName);
+    let html = fs.readFileSync(pagePath, 'utf8');
+    html = replaceGridContent(html, gridId, renderCardGrid(items, type));
+    fs.writeFileSync(pagePath, html, 'utf8');
+}
+
 function getAbsoluteImageUrl(post) {
     const imagePath = getImagePath(post);
     return /^https?:\/\//i.test(imagePath) ? imagePath : `${SITE_URL}/${imagePath}`;
@@ -439,6 +446,9 @@ async function main() {
     indexHtml = replaceGridContent(indexHtml, 'quiz-destaque-grid', renderCardGrid(featuredQuizzes.length ? featuredQuizzes : quizzes.slice(0, 3), 'quiz'));
     indexHtml = upsertHomeSchema(indexHtml);
     fs.writeFileSync(indexPath, indexHtml, 'utf8');
+    updateGridPage('filmes.html', 'posts-grid-container', posts.filter(post => post.category === 'filme').slice(0, 12), 'post');
+    updateGridPage('series.html', 'posts-grid-container', posts.filter(post => post.category === 'serie').slice(0, 12), 'post');
+    updateGridPage('quizzes.html', 'quizzes-grid-container', quizzes.slice(0, 12), 'quiz');
     console.log(`Geradas ${posts.length} paginas em posts/ e sitemap.xml atualizado.`);
 }
 
