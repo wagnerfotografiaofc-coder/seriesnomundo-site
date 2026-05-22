@@ -81,6 +81,94 @@ function renderCardGrid(items, type) {
     return `\n${items.map(item => renderCard(item, type)).join('\n')}\n        `;
 }
 
+function renderJsonLd(data) {
+    return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
+function getOrganizationSchema() {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Series No Mundo',
+        url: SITE_URL,
+        logo: `${SITE_URL}/imagens/sofa.png`,
+        sameAs: ['https://www.instagram.com/series_no_mundo']
+    };
+}
+
+function getWebsiteSchema() {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Series No Mundo',
+        url: SITE_URL,
+        description: 'Noticias, listas, teorias, curiosidades e quizzes sobre filmes, series, animes e cultura pop.',
+        publisher: {
+            '@type': 'Organization',
+            name: 'Series No Mundo'
+        }
+    };
+}
+
+function getArticleSchema(post) {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: post.title,
+        description: post.description,
+        image: getAbsoluteImageUrl(post),
+        url: `${SITE_URL}/${getPostPath(post)}`,
+        mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': `${SITE_URL}/${getPostPath(post)}`
+        },
+        datePublished: post.created_at || undefined,
+        dateModified: post.updated_at || post.created_at || undefined,
+        author: {
+            '@type': 'Organization',
+            name: 'Series No Mundo'
+        },
+        publisher: {
+            '@type': 'Organization',
+            name: 'Series No Mundo',
+            logo: {
+                '@type': 'ImageObject',
+                url: `${SITE_URL}/imagens/sofa.png`
+            }
+        }
+    };
+}
+
+function getBreadcrumbSchema(post) {
+    const categoryName = post.category === 'filme' ? 'Filmes' : 'Séries';
+    const categoryUrl = post.category === 'filme' ? `${SITE_URL}/filmes.html` : `${SITE_URL}/series.html`;
+
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Início',
+                item: `${SITE_URL}/`
+            },
+            {
+                '@type': 'ListItem',
+                position: 2,
+                name: categoryName,
+                item: categoryUrl
+            },
+            {
+                '@type': 'ListItem',
+                position: 3,
+                name: post.title,
+                item: `${SITE_URL}/${getPostPath(post)}`
+            }
+        ]
+    };
+}
+
 function replaceGridContent(html, gridId, content) {
     const startTag = `<div class="card-grid" id="${gridId}">`;
     const startIndex = html.indexOf(startTag);
@@ -104,6 +192,18 @@ function replaceGridContent(html, gridId, content) {
     }
 
     return `${html.slice(0, startIndex + startTag.length)}${content}${html.slice(searchIndex - 6)}`;
+}
+
+function upsertHomeSchema(html) {
+    const schemaHtml = `    ${renderJsonLd(getOrganizationSchema())}
+    ${renderJsonLd(getWebsiteSchema())}`;
+    const schemaPattern = /\n\s*<script type="application\/ld\+json">[\s\S]*?<\/script>\s*\n\s*<script type="application\/ld\+json">[\s\S]*?<\/script>/;
+
+    if (schemaPattern.test(html)) {
+        return html.replace(schemaPattern, `\n${schemaHtml}`);
+    }
+
+    return html.replace('</head>', `${schemaHtml}\n</head>`);
 }
 
 function getAbsoluteImageUrl(post) {
@@ -241,6 +341,8 @@ function renderPostPage(post, suggestions) {
     <meta name="twitter:image" content="${imageUrl}">
     <link rel="stylesheet" href="../style.css">
     <link rel="icon" type="image/png" href="../imagens/sofa.png">
+    ${renderJsonLd(getArticleSchema(post))}
+    ${renderJsonLd(getBreadcrumbSchema(post))}
 </head>
 <body data-theme="dark">
 
@@ -335,6 +437,7 @@ async function main() {
     indexHtml = replaceGridContent(indexHtml, 'filmes-destaque-grid', renderCardGrid(featuredFilmes.length ? featuredFilmes : posts.filter(post => post.category === 'filme').slice(0, 3), 'post'));
     indexHtml = replaceGridContent(indexHtml, 'series-destaque-grid', renderCardGrid(featuredSeries.length ? featuredSeries : posts.filter(post => post.category === 'serie').slice(0, 3), 'post'));
     indexHtml = replaceGridContent(indexHtml, 'quiz-destaque-grid', renderCardGrid(featuredQuizzes.length ? featuredQuizzes : quizzes.slice(0, 3), 'quiz'));
+    indexHtml = upsertHomeSchema(indexHtml);
     fs.writeFileSync(indexPath, indexHtml, 'utf8');
     console.log(`Geradas ${posts.length} paginas em posts/ e sitemap.xml atualizado.`);
 }
