@@ -12,6 +12,7 @@ applySavedTheme();
 
 document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
+    optimizeStaticImages();
 
     // --- FUNÇÕES DE RENDERIZAÇÃO ---
     function slugify(value) {
@@ -32,6 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return `post.html?id=${post.id}`;
     }
 
+    function optimizeStaticImages() {
+        const images = [...document.querySelectorAll('img')];
+        images.forEach((img, index) => {
+            if (!img.hasAttribute('loading')) img.setAttribute('loading', index < 2 ? 'eager' : 'lazy');
+            if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+            if (!img.hasAttribute('fetchpriority')) img.setAttribute('fetchpriority', index === 0 ? 'high' : 'auto');
+        });
+    }
+
     function renderCardGrid(containerId, items, type) {
         const gridContainer = document.getElementById(containerId);
         if (!gridContainer) return;
@@ -40,14 +50,16 @@ document.addEventListener('DOMContentLoaded', () => {
             gridContainer.innerHTML = `<p style="grid-column: 1 / -1;">Nenhum item encontrado.</p>`;
             return;
         }
-        items.forEach(item => {
+        items.forEach((item, index) => {
             const isPost = type === 'post';
             const imagePath = item.image_url || (isPost ? (item.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png') : 'imagens/2.png');
             const link = isPost ? getDynamicPostPath(item) : `play-quiz.html?id=${item.id}`;
+            const imageLoading = index < 3 ? 'eager' : 'lazy';
+            const imageFetchPriority = index === 0 ? 'high' : 'auto';
             gridContainer.innerHTML += `
                 <div class="card">
                     <a href="${link}" class="card-link-wrapper">
-                        <img src="${imagePath}" alt="${item.title}" class="card-image">
+                        <img src="${imagePath}" alt="${item.title}" class="card-image" loading="${imageLoading}" decoding="async" fetchpriority="${imageFetchPriority}">
                         <div class="card-content">
                             <h3 class="card-title">${item.title}</h3>
                             <p class="card-description">${item.description}</p>
@@ -161,9 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FUNÇÕES DE CARREGAMENTO DE PÁGINA ---
     async function loadHomePage() {
-        const { data: featuredFilmes } = await supabaseClient.from('posts').select('*').eq('category', 'filme').eq('is_featured', true).limit(3);
-        const { data: featuredSeries } = await supabaseClient.from('posts').select('*').eq('category', 'serie').eq('is_featured', true).limit(3);
-        const { data: featuredQuiz } = await supabaseClient.from('quizzes').select('*').eq('is_featured', true).limit(1);
+        const postListFields = 'id,title,description,image_url,category';
+        const quizListFields = 'id,title,description,image_url';
+        const { data: featuredFilmes } = await supabaseClient.from('posts').select(postListFields).eq('category', 'filme').eq('is_featured', true).limit(3);
+        const { data: featuredSeries } = await supabaseClient.from('posts').select(postListFields).eq('category', 'serie').eq('is_featured', true).limit(3);
+        const { data: featuredQuiz } = await supabaseClient.from('quizzes').select(quizListFields).eq('is_featured', true).limit(1);
         renderCardGrid('filmes-destaque-grid', featuredFilmes, 'post');
         renderCardGrid('series-destaque-grid', featuredSeries, 'post');
         if (featuredQuiz && featuredQuiz.length > 0) { renderCardGrid('quiz-destaque-grid', featuredQuiz, 'quiz'); }
@@ -173,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const postsPerPage = 9;
         const startIndex = (page - 1) * postsPerPage;
         const searchTerm = document.getElementById('search-input')?.value || '';
-        let query = supabaseClient.from('posts').select('*', { count: 'exact' }).eq('category', category).order('created_at', { ascending: false }).range(startIndex, startIndex + postsPerPage - 1);
+        let query = supabaseClient.from('posts').select('id,title,description,image_url,category', { count: 'exact' }).eq('category', category).order('created_at', { ascending: false }).range(startIndex, startIndex + postsPerPage - 1);
         if (searchTerm) { query = query.ilike('title', `%${searchTerm}%`); }
         const { data, error, count } = await query;
         if (error) { console.error("Erro:", error); } else {
@@ -184,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadQuizzesPage() {
-        const { data, error } = await supabaseClient.from('quizzes').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabaseClient.from('quizzes').select('id,title,description,image_url').order('created_at', { ascending: false });
         if (error) { console.error("Erro ao buscar quizzes:", error); }
         else { renderCardGrid('quizzes-grid-container', data, 'quiz'); }
     }
@@ -207,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const videoEmbedUrl = getYouTubeEmbedUrl(post.video_url);
     const videoHtml = videoEmbedUrl ? `<div class="post-video-wrapper"><iframe src="${videoEmbedUrl}" title="Trailer oficial de ${post.title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>` : '';
-    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image"><div class="text-page-content">${post.content}</div>${videoHtml}`;
+    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image" loading="eager" decoding="async" fetchpriority="high"><div class="text-page-content">${post.content}</div>${videoHtml}`;
     document.getElementById('back-button').addEventListener('click', () => { history.back(); });
 
     // 2. Lógica de Sugestão por Tags (a parte nova e correta)
@@ -217,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const relatedTags = getTagVariants(post.tags);
         const { data: tagSuggestions } = await supabaseClient
             .from('posts')
-            .select('*')
+            .select('id,title,description')
             .overlaps('tags', relatedTags) // Busca posts que tenham pelo menos uma tag em comum
             .neq('id', post.id)          // Garante que não vai sugerir o próprio post
             .order('created_at', { ascending: false })
@@ -229,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!suggestions || suggestions.length === 0) {
         const { data: categorySuggestions } = await supabaseClient
             .from('posts')
-            .select('*')
+            .select('id,title,description')
             .eq('category', post.category)
             .neq('id', post.id)
             .limit(3)
@@ -250,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quizId = new URLSearchParams(window.location.search).get('id');
         const container = document.getElementById('quiz-player-container');
         if (!quizId) { container.innerHTML = '<h1>Quiz não encontrado.</h1>'; return; }
-        const { data: quiz, error } = await supabaseClient.from('quizzes').select('*').eq('id', quizId).single();
+        const { data: quiz, error } = await supabaseClient.from('quizzes').select('id,title,description,quiz_type,items_per_round').eq('id', quizId).single();
         if (error) { container.innerHTML = '<h1>Erro ao carregar o quiz.</h1>'; return; }
         updatePageMeta({
             title: `${quiz.title} | Quiz Series No Mundo`,
@@ -267,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function playTrueFalseQuiz(quiz) {
-        const { data: questions, error } = await supabaseClient.from('questions').select('*').eq('quiz_id', quiz.id).order('id');
+        const { data: questions, error } = await supabaseClient.from('questions').select('id,question_text,is_true').eq('quiz_id', quiz.id).order('id');
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas.</h1>'; return; }
         let currentQuestionIndex = 0; let score = 0; const container = document.getElementById('quiz-player-container');
         function renderQuestion() { const question = questions[currentQuestionIndex]; container.innerHTML = `<div class="quiz-container-player"><p>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</p><h2 class="text-page-title">${question.question_text}</h2><div class="tf-options"><button class="tf-btn" data-answer="true">Verdadeiro</button><button class="tf-btn" data-answer="false">Falso</button></div></div>`; document.querySelectorAll('.tf-btn').forEach(button => button.addEventListener('click', handleAnswer)); }
@@ -279,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function playTriviaQuiz(quiz) {
-        const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(*)').eq('quiz_id', quiz.id);
+        const { data: questions, error } = await supabaseClient.from('questions').select('id,question_text,answers(answer_text,is_correct)').eq('quiz_id', quiz.id);
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
         let currentQuestionIndex = 0; let score = 0; const container = document.getElementById('quiz-player-container');
         function renderQuestion() {
@@ -304,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function playAssociationQuiz(quiz) {
-        const { data: questions, error } = await supabaseClient.from('questions').select('*, answers(answer_text)').eq('quiz_id', quiz.id).order('id');
+        const { data: questions, error } = await supabaseClient.from('questions').select('id,question_text,answers(answer_text)').eq('quiz_id', quiz.id).order('id');
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
         
         let totalScore = 0; const itemsPerRound = Math.max(1, parseInt(quiz.items_per_round, 10) || 6); const totalRounds = Math.ceil(questions.length / itemsPerRound); let currentRound = 1; const container = document.getElementById('quiz-player-container');
