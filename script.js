@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return `posts/${post.id}-${slugify(post.title)}.html`;
     }
 
+    function getDynamicPostPath(post) {
+        return `post.html?id=${post.id}`;
+    }
+
     function renderCardGrid(containerId, items, type) {
         const gridContainer = document.getElementById(containerId);
         if (!gridContainer) return;
@@ -39,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => {
             const isPost = type === 'post';
             const imagePath = item.image_url || (isPost ? (item.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png') : 'imagens/2.png');
-            const link = isPost ? getPostPagePath(item) : `play-quiz.html?id=${item.id}`;
+            const link = isPost ? getDynamicPostPath(item) : `play-quiz.html?id=${item.id}`;
             gridContainer.innerHTML += `
                 <div class="card">
                     <a href="${link}" class="card-link-wrapper">
@@ -60,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridContainer.innerHTML = '';
         posts.forEach(post => {
             gridContainer.innerHTML += `
-                <a href="${getPostPagePath(post)}" class="suggestion-button">
+                <a href="${getDynamicPostPath(post)}" class="suggestion-button">
                     <h4>${post.title}</h4>
                     <p>${post.description}</p>
                 </a>
