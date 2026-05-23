@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingPostId = null;
     let editingQuizId = null;
     let adminLoaded = false;
+    let originalQuizQuestionsSignature = '';
 
     function escapeHTML(value) {
         return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -215,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showQuizCreateForm() {
-        editingQuizId = null; quizForm.reset(); quizQuestionsWrappers.innerHTML = ''; quizTypeSelect.disabled = false;
+        editingQuizId = null; originalQuizQuestionsSignature = ''; quizForm.reset(); quizQuestionsWrappers.innerHTML = ''; quizTypeSelect.disabled = false;
         document.getElementById('quiz-form-title').innerText = 'Criar Novo Quiz';
         quizForm.classList.remove('hidden'); showQuizFormBtn.classList.add('hidden');
     }
@@ -248,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         quizForm.classList.remove('hidden'); showQuizFormBtn.classList.add('hidden');
     }
 
-    function hideQuizForm() { quizForm.classList.add('hidden'); showQuizFormBtn.classList.remove('hidden'); quizForm.reset(); editingQuizId = null; }
+    function hideQuizForm() { quizForm.classList.add('hidden'); showQuizFormBtn.classList.remove('hidden'); quizForm.reset(); editingQuizId = null; originalQuizQuestionsSignature = ''; }
 
     function handleQuizTypeChange(isEditing = false) {
         const selectedType = quizTypeSelect.value;
@@ -294,6 +295,35 @@ document.addEventListener('DOMContentLoaded', () => {
         newField.querySelector('.delete-question-btn').addEventListener('click', () => newField.remove());
     }
 
+    function getQuizQuestionsSignature(type) {
+        const container = document.getElementById('questions-container');
+        if (!container) return '';
+
+        const questions = [...container.children].map(item => {
+            const question = { question_text: item.querySelector('.question-text')?.value || '' };
+            if (type === 'true_false') {
+                question.is_true = item.querySelector('.is-true')?.value === 'true';
+            } else if (type === 'trivia' || type === 'who_am_i') {
+                const correctAnswerIndex = item.querySelector('input[name*="correct_answer"]:checked')?.value || '';
+                question.answers = [...item.querySelectorAll('.answer-text')].map((input, index) => ({
+                    answer_text: input.value || '',
+                    is_correct: String(index) === correctAnswerIndex
+                }));
+            } else if (type === 'personality') {
+                question.results = document.getElementById('personality-results')?.value || '';
+                question.answers = [...item.querySelectorAll('.answer-group')].map(group => ({
+                    answer_text: group.querySelector('.answer-text')?.value || '',
+                    points_to: group.querySelector('.points-to')?.value || ''
+                }));
+            } else if (type === 'association') {
+                question.answer_text = item.querySelector('.answer-text')?.value || '';
+            }
+            return question;
+        });
+
+        return JSON.stringify(questions);
+    }
+
     function populateQuestionFields(type, questions) {
         const container = document.getElementById('questions-container');
         if(!container) return;
@@ -303,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('personality-results').value = [...new Set(results)].join(', ');
         }
         questions.forEach(q => addQuestionField(type, q));
+        originalQuizQuestionsSignature = getQuizQuestionsSignature(type);
     }
     
     async function handleQuizFormSubmit(event) {
@@ -318,6 +349,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editingQuizId) {
             const { error } = await supabaseClient.from('quizzes').update(quizPayload).eq('id', editingQuizId);
             if (error) { alert('Erro ao atualizar o quiz: ' + error.message); return; }
+            const currentQuestionsSignature = getQuizQuestionsSignature(quizType);
+            if (currentQuestionsSignature === originalQuizQuestionsSignature) {
+                alert('Quiz atualizado com sucesso!');
+                hideQuizForm();
+                getQuizzes();
+                return;
+            }
+            alert('Os dados principais do quiz foram salvos, mas as perguntas não foram alteradas porque o banco bloqueou essa operação. Para editar perguntas, ajuste as permissões da tabela questions no Supabase.');
+            hideQuizForm();
+            getQuizzes();
+            return;
             const { data: questions } = await supabaseClient.from('questions').select('id').eq('quiz_id', editingQuizId);
             if (questions && questions.length > 0) {
                 const qIds = questions.map(q => q.id);
