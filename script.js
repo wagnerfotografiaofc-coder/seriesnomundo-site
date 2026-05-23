@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quizListFields = 'id,title,description,image_url';
         const { data: featuredFilmes } = await supabaseClient.from('posts').select(postListFields).eq('category', 'filme').eq('is_featured', true).limit(3);
         const { data: featuredSeries } = await supabaseClient.from('posts').select(postListFields).eq('category', 'serie').eq('is_featured', true).limit(3);
-        const { data: featuredQuiz } = await supabaseClient.from('quizzes').select(quizListFields).eq('is_featured', true).limit(1);
+        const { data: featuredQuiz } = await supabaseClient.from('quizzes').select(quizListFields).eq('is_featured', true).limit(3);
         renderCardGrid('filmes-destaque-grid', featuredFilmes, 'post');
         renderCardGrid('series-destaque-grid', featuredSeries, 'post');
         if (featuredQuiz && featuredQuiz.length > 0) { renderCardGrid('quiz-destaque-grid', featuredQuiz, 'quiz'); }
