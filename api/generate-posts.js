@@ -78,7 +78,7 @@ IDEIA OU TEXTO BASE DO POST:
 ${briefing}`;
 }
 
-async function generateSinglePost({ apiKey, briefing, index, total }) {
+async function callDeepSeek({ apiKey, briefing, index, total, temperature }) {
     const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
@@ -87,6 +87,7 @@ async function generateSinglePost({ apiKey, briefing, index, total }) {
         },
         body: JSON.stringify({
             model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+            thinking: { type: 'disabled' },
             messages: [
                 {
                     role: 'system',
@@ -97,8 +98,8 @@ async function generateSinglePost({ apiKey, briefing, index, total }) {
                     content: buildPrompt({ briefing, index, total })
                 }
             ],
-            temperature: 0.75,
-            max_tokens: 3600
+            temperature,
+            max_tokens: 5000
         })
     });
 
@@ -109,9 +110,22 @@ async function generateSinglePost({ apiKey, briefing, index, total }) {
         throw new Error(message);
     }
 
-    const content = data?.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error('A DeepSeek respondeu vazio.');
+    const choice = data?.choices?.[0];
+    const content = choice?.message?.content?.trim();
+    if (!content) {
+        const reason = choice?.finish_reason ? ` Motivo: ${choice.finish_reason}.` : '';
+        throw new Error(`A DeepSeek respondeu vazio no post ${index}.${reason}`);
+    }
     return content;
+}
+
+async function generateSinglePost({ apiKey, briefing, index, total }) {
+    try {
+        return await callDeepSeek({ apiKey, briefing, index, total, temperature: 0.72 });
+    } catch (error) {
+        if (!error.message.includes('respondeu vazio')) throw error;
+        return callDeepSeek({ apiKey, briefing, index, total, temperature: 0.55 });
+    }
 }
 
 module.exports = async function handler(request, response) {
@@ -150,7 +164,11 @@ module.exports = async function handler(request, response) {
             return generateSinglePost({ apiKey, briefing, index, total: count });
         });
 
-        const posts = await Promise.all(postRequests);
+        const results = await Promise.allSettled(postRequests);
+        const failedResult = results.find(result => result.status === 'rejected');
+        if (failedResult) throw failedResult.reason;
+
+        const posts = results.map(result => result.value);
 
         return sendJson(response, 200, { content: posts.join('\n\n\n') });
     } catch (error) {
