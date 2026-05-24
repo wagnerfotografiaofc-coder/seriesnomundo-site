@@ -48,6 +48,9 @@ REGRAS OBRIGATORIAS:
 - A categoria deve ser exatamente Filmes ou Series.
 - Use o texto base como fonte principal e nao invente fatos especificos que nao estejam nele.
 - Curiosidades, bastidores, bilheteria, datas, locais de filmagem, valores, nomes de atores e eventos reais so podem entrar se estiverem no texto base.
+- Quando mencionar curiosidades, bastidores, rumores, entrevistas, valores, numeros ou informacoes que dependem de fonte externa, use atribuicoes seguras como "segundo relatos", "de acordo com informacoes divulgadas na epoca", "em entrevistas da epoca" ou "dados de bilheteria apontam".
+- Nao apresente curiosidades de bastidor como certeza absoluta se o texto base nao trouxer uma fonte clara.
+- Nao repita "segundo relatos" em todos os paragrafos. Varie a atribuicao para o texto continuar natural.
 - Se faltar alguma informacao, escreva de forma mais geral em vez de inventar detalhes.
 - Nao invente noticias recentes como se fossem confirmadas.
 - Se falar de catalogo de streaming, use linguagem segura como "pode variar conforme a regiao e o periodo".
