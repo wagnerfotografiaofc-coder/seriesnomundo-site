@@ -21,6 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const showPostFormBtn = document.getElementById('show-post-form-btn');
     const postForm = document.getElementById('post-form');
     const postFormCancelBtn = document.getElementById('post-form-cancel-btn');
+    const bulkPostsInput = document.getElementById('bulk-posts-input');
+    const bulkPostsPreviewBtn = document.getElementById('bulk-posts-preview-btn');
+    const bulkPostsImportBtn = document.getElementById('bulk-posts-import-btn');
+    const bulkPostsClearBtn = document.getElementById('bulk-posts-clear-btn');
+    const bulkPostsStatus = document.getElementById('bulk-posts-status');
+    const bulkPostsPreview = document.getElementById('bulk-posts-preview');
     
     const quizzesList = document.getElementById('quizzes-list');
     const showQuizFormBtn = document.getElementById('show-quiz-form-btn');
@@ -33,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingQuizId = null;
     let adminLoaded = false;
     let originalQuizQuestionsSignature = '';
+    let parsedBulkPosts = [];
 
     function escapeHTML(value) {
         return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -59,6 +66,174 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatTags(tags) {
         return Array.isArray(tags) ? tags.join(', ') : '';
+    }
+
+    function normalizeText(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim();
+    }
+
+    function getBulkFieldKey(label) {
+        const normalizedLabel = normalizeText(label);
+        const fieldMap = {
+            'titulo seo': 'title',
+            'meta description': 'description',
+            'slug': 'slug',
+            'categoria': 'category',
+            'tags': 'tags',
+            'fontes consultadas': 'sources',
+            'conteudo html': 'content'
+        };
+        return fieldMap[normalizedLabel] || null;
+    }
+
+    function normalizeCategory(value) {
+        const normalizedCategory = normalizeText(value);
+        if (['filme', 'filmes'].includes(normalizedCategory)) return 'filme';
+        if (['serie', 'series'].includes(normalizedCategory)) return 'serie';
+        return '';
+    }
+
+    function createEmptyBulkPost() {
+        return { title: [], description: [], slug: [], category: [], tags: [], sources: [], content: [] };
+    }
+
+    function bulkPostHasContent(post) {
+        return Object.values(post).some(value => Array.isArray(value) && value.join('').trim());
+    }
+
+    function parseBulkPosts(rawText) {
+        const posts = [];
+        let currentPost = null;
+        let currentField = '';
+
+        String(rawText || '').split(/\r?\n/).forEach(line => {
+            const labelMatch = line.match(/^\s*([^:]+)\s*:\s*(.*)$/);
+            const fieldKey = labelMatch ? getBulkFieldKey(labelMatch[1]) : null;
+
+            if (fieldKey) {
+                if (fieldKey === 'title' && currentPost && bulkPostHasContent(currentPost)) {
+                    posts.push(currentPost);
+                    currentPost = createEmptyBulkPost();
+                }
+                if (!currentPost) currentPost = createEmptyBulkPost();
+                currentField = fieldKey;
+                if (labelMatch[2]) currentPost[currentField].push(labelMatch[2]);
+                return;
+            }
+
+            if (currentPost && currentField) {
+                currentPost[currentField].push(line);
+            }
+        });
+
+        if (currentPost && bulkPostHasContent(currentPost)) posts.push(currentPost);
+
+        return posts.map((post, index) => {
+            const category = normalizeCategory(post.category.join('\n').trim());
+            const data = {
+                title: post.title.join('\n').trim(),
+                description: post.description.join('\n').trim(),
+                category,
+                tags: parseTags(post.tags.join('\n')),
+                content: post.content.join('\n').trim(),
+                video_url: '',
+                is_featured: false
+            };
+            const errors = [];
+            if (!data.title) errors.push('sem titulo');
+            if (!data.description) errors.push('sem meta description');
+            if (!data.category) errors.push('categoria invalida');
+            if (!data.content) errors.push('sem conteudo HTML');
+            return { index: index + 1, data, errors };
+        });
+    }
+
+    function renderBulkPostsPreview(items) {
+        bulkPostsPreview.innerHTML = '';
+        bulkPostsStatus.className = '';
+        bulkPostsImportBtn.disabled = true;
+
+        if (!items.length) {
+            bulkPostsStatus.className = 'bulk-error';
+            bulkPostsStatus.innerText = 'Nenhum post encontrado. Confira se o texto comeca com "Titulo SEO:".';
+            return;
+        }
+
+        const invalidItems = items.filter(item => item.errors.length);
+        const categorySummary = items.reduce((summary, item) => {
+            const label = item.data.category === 'filme' ? 'Filmes' : item.data.category === 'serie' ? 'Series' : 'Invalidos';
+            summary[label] = (summary[label] || 0) + 1;
+            return summary;
+        }, {});
+
+        bulkPostsStatus.className = invalidItems.length ? 'bulk-error' : 'bulk-success';
+        bulkPostsStatus.innerText = invalidItems.length
+            ? `Foram encontrados ${items.length} posts, mas ${invalidItems.length} precisam de ajuste.`
+            : `Foram encontrados ${items.length} posts. Filmes: ${categorySummary.Filmes || 0}. Series: ${categorySummary.Series || 0}.`;
+
+        items.forEach(item => {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'bulk-preview-item';
+            const description = item.data.description.length > 170 ? `${item.data.description.slice(0, 170)}...` : item.data.description;
+            const contentSize = item.data.content.replace(/<[^>]*>/g, ' ').trim().length;
+            previewItem.innerHTML = `
+                <strong>${item.index}. ${escapeHTML(item.data.title || 'Sem titulo')}</strong>
+                <div class="bulk-preview-meta">Categoria: ${escapeHTML(item.data.category || 'invalida')} | Tags: ${escapeHTML(item.data.tags.join(', ') || 'sem tags')} | Conteudo: ${contentSize} caracteres</div>
+                <div class="bulk-preview-meta">${escapeHTML(description || 'Sem descricao')}</div>
+                ${item.errors.length ? `<div class="bulk-error">Ajustar: ${escapeHTML(item.errors.join(', '))}</div>` : ''}
+            `;
+            bulkPostsPreview.appendChild(previewItem);
+        });
+
+        if (!invalidItems.length) {
+            bulkPostsImportBtn.disabled = false;
+        }
+    }
+
+    function handleBulkPostsPreview() {
+        parsedBulkPosts = parseBulkPosts(bulkPostsInput.value);
+        renderBulkPostsPreview(parsedBulkPosts);
+    }
+
+    async function handleBulkPostsImport() {
+        const validPosts = parsedBulkPosts.filter(item => !item.errors.length).map(item => item.data);
+        if (!validPosts.length) {
+            alert('Nenhum post valido para importar.');
+            return;
+        }
+        if (!confirm(`Importar ${validPosts.length} posts agora?`)) return;
+
+        bulkPostsImportBtn.disabled = true;
+        bulkPostsStatus.className = '';
+        bulkPostsStatus.innerText = 'Importando posts...';
+
+        const { error } = await supabaseClient.from('posts').insert(validPosts);
+        if (error) {
+            bulkPostsStatus.className = 'bulk-error';
+            bulkPostsStatus.innerText = `Erro ao importar: ${error.message}`;
+            bulkPostsImportBtn.disabled = false;
+            return;
+        }
+
+        bulkPostsStatus.className = 'bulk-success';
+        bulkPostsStatus.innerText = `${validPosts.length} posts importados com sucesso.`;
+        bulkPostsInput.value = '';
+        bulkPostsPreview.innerHTML = '';
+        parsedBulkPosts = [];
+        await getPosts();
+    }
+
+    function clearBulkPostsImport() {
+        bulkPostsInput.value = '';
+        bulkPostsPreview.innerHTML = '';
+        bulkPostsStatus.innerText = '';
+        bulkPostsStatus.className = '';
+        bulkPostsImportBtn.disabled = true;
+        parsedBulkPosts = [];
     }
 
     async function loadAdminData() {
@@ -448,6 +623,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showPostFormBtn.addEventListener('click', showPostCreateForm);
     postFormCancelBtn.addEventListener('click', hidePostForm);
     postForm.addEventListener('submit', handlePostFormSubmit);
+    bulkPostsPreviewBtn.addEventListener('click', handleBulkPostsPreview);
+    bulkPostsImportBtn.addEventListener('click', handleBulkPostsImport);
+    bulkPostsClearBtn.addEventListener('click', clearBulkPostsImport);
+    bulkPostsInput.addEventListener('input', () => {
+        bulkPostsImportBtn.disabled = true;
+        parsedBulkPosts = [];
+    });
 
     showQuizFormBtn.addEventListener('click', showQuizCreateForm);
     quizTypeSelect.addEventListener('change', () => handleQuizTypeChange(false));

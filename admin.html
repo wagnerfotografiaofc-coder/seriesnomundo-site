@@ -32,6 +32,12 @@
         .logout-btn { background-color: #495057; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         #login-panel { max-width: 420px; margin: 80px auto; }
         #login-message { min-height: 24px; color: #ff8787; font-weight: bold; }
+        .bulk-preview { display: grid; gap: 12px; margin: 15px 0; }
+        .bulk-preview-item { background: #1f1f20; border: 1px solid #3a3a3c; border-radius: 6px; padding: 12px; }
+        .bulk-preview-item strong { color: #ffffff; }
+        .bulk-preview-meta { color: #adb5bd; font-size: 0.9em; margin-top: 6px; }
+        .bulk-error { color: #ff8787; font-weight: bold; margin: 10px 0; }
+        .bulk-success { color: #69db7c; font-weight: bold; margin: 10px 0; }
         hr { border-color: #3a3a3c; margin: 40px 0 20px 0; border-style: solid; border-width: 1px 0 0 0; }
         .hidden { display: none; }
     </style>
@@ -73,6 +79,32 @@
         <div><input type="checkbox" id="post-is_featured" style="width: auto; margin-right: 5px;"><label for="post-is_featured" style="display: inline;">Destaque na Home?</label></div>
         <hr style="margin: 20px 0;"><div class="form-actions"><button type="button" class="form-cancel-btn" id="post-form-cancel-btn">Cancelar</button><button type="submit" class="form-submit-btn">Salvar Post</button></div>
     </form>
+    <section id="bulk-post-import-section" class="form-container">
+        <h2>Importar Posts em Massa</h2>
+        <label for="bulk-posts-input">Cole os posts no formato combinado:</label>
+        <textarea id="bulk-posts-input" rows="14" placeholder="Titulo SEO:
+Top filmes para assistir hoje
+
+Meta description:
+Descricao do post...
+
+Categoria:
+Filmes
+
+Tags:
+tag 1, tag 2
+
+Conteudo HTML:
+
+&lt;h2&gt;Titulo&lt;/h2&gt; &lt;p&gt;Texto...&lt;/p&gt;"></textarea>
+        <div class="form-actions">
+            <button type="button" class="form-cancel-btn" id="bulk-posts-clear-btn">Limpar</button>
+            <button type="button" class="form-submit-btn" id="bulk-posts-preview-btn">Pre-visualizar</button>
+            <button type="button" class="form-submit-btn" id="bulk-posts-import-btn" disabled>Importar Posts</button>
+        </div>
+        <p id="bulk-posts-status"></p>
+        <div id="bulk-posts-preview" class="bulk-preview"></div>
+    </section>
     <ul id="posts-list"></ul>
     <hr>
     <h2>Meus Quizzes</h2>
