@@ -34,12 +34,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const quizTypeSelect = document.getElementById('quiz-type');
     const quizFormCancelBtn = document.getElementById('quiz-form-cancel-btn');
     const quizQuestionsWrappers = document.getElementById('quiz-questions-wrappers');
+    const bulkQuizInput = document.getElementById('bulk-quiz-input');
+    const bulkQuizPreviewBtn = document.getElementById('bulk-quiz-preview-btn');
+    const bulkQuizImportBtn = document.getElementById('bulk-quiz-import-btn');
+    const bulkQuizClearBtn = document.getElementById('bulk-quiz-clear-btn');
+    const bulkQuizStatus = document.getElementById('bulk-quiz-status');
+    const bulkQuizPreview = document.getElementById('bulk-quiz-preview');
+    const bulkQuizIsFeatured = document.getElementById('bulk-quiz-is-featured');
 
     let editingPostId = null;
     let editingQuizId = null;
     let adminLoaded = false;
     let originalQuizQuestionsSignature = '';
     let parsedBulkPosts = [];
+    let parsedBulkQuiz = null;
 
     function escapeHTML(value) {
         return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -234,6 +242,175 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkPostsStatus.className = '';
         bulkPostsImportBtn.disabled = true;
         parsedBulkPosts = [];
+    }
+
+    function cleanQuizAnswerLine(value) {
+        return String(value || '')
+            .replace(/[✅❌]/g, '')
+            .trim();
+    }
+
+    function parseBulkTrueFalseQuiz(rawText) {
+        const lines = String(rawText || '')
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        const titleIndex = lines.findIndex(line => !/^\d+\.?$/.test(line));
+        const title = titleIndex >= 0 ? lines[titleIndex] : '';
+        const questions = [];
+        let currentQuestion = null;
+
+        lines.slice(titleIndex + 1).forEach(line => {
+            if (/^\d+\.?$/.test(line)) {
+                if (currentQuestion) questions.push(currentQuestion);
+                currentQuestion = { question_text: '', is_true: null, explanation: [] };
+                return;
+            }
+
+            if (!currentQuestion) return;
+
+            const normalizedLine = normalizeText(cleanQuizAnswerLine(line));
+            if (['verdadeiro', 'true'].includes(normalizedLine)) {
+                currentQuestion.is_true = true;
+                return;
+            }
+            if (['falso', 'false'].includes(normalizedLine)) {
+                currentQuestion.is_true = false;
+                return;
+            }
+
+            if (currentQuestion.is_true === null && !currentQuestion.question_text) {
+                currentQuestion.question_text = line;
+            } else {
+                currentQuestion.explanation.push(line);
+            }
+        });
+
+        if (currentQuestion) questions.push(currentQuestion);
+
+        const data = {
+            title,
+            description: `Quiz de verdadeiro ou falso sobre ${title.replace(/^verdadeiro ou falso\s*[-—:]*\s*/i, '').trim() || title}.`,
+            quiz_type: 'true_false',
+            is_featured: bulkQuizIsFeatured.checked,
+            items_per_round: null,
+            questions
+        };
+
+        const errors = [];
+        if (!data.title) errors.push('sem titulo');
+        if (!questions.length) errors.push('sem perguntas');
+        questions.forEach((question, index) => {
+            if (!question.question_text) errors.push(`pergunta ${index + 1} sem texto`);
+            if (question.is_true === null) errors.push(`pergunta ${index + 1} sem resposta`);
+        });
+
+        return { data, errors };
+    }
+
+    function renderBulkQuizPreview(result) {
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizStatus.className = '';
+        bulkQuizImportBtn.disabled = true;
+
+        if (!result || !result.data) {
+            bulkQuizStatus.className = 'bulk-error';
+            bulkQuizStatus.innerText = 'Nenhum quiz encontrado.';
+            return;
+        }
+
+        const { data, errors } = result;
+        bulkQuizStatus.className = errors.length ? 'bulk-error' : 'bulk-success';
+        bulkQuizStatus.innerText = errors.length
+            ? `O quiz precisa de ajuste: ${errors.join(', ')}.`
+            : `Quiz encontrado: ${data.title}. Perguntas: ${data.questions.length}.`;
+
+        const header = document.createElement('div');
+        header.className = 'bulk-preview-item';
+        header.innerHTML = `
+            <strong>${escapeHTML(data.title || 'Sem titulo')}</strong>
+            <div class="bulk-preview-meta">Tipo: Verdadeiro/Falso | Destaque: ${data.is_featured ? 'sim' : 'nao'} | Perguntas: ${data.questions.length}</div>
+        `;
+        bulkQuizPreview.appendChild(header);
+
+        data.questions.forEach((question, index) => {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'bulk-preview-item';
+            previewItem.innerHTML = `
+                <strong>${index + 1}. ${escapeHTML(question.question_text || 'Sem texto')}</strong>
+                <div class="bulk-preview-meta">Resposta: ${question.is_true === true ? 'Verdadeiro' : question.is_true === false ? 'Falso' : 'sem resposta'}</div>
+                ${question.explanation.length ? `<div class="bulk-preview-meta">Observacao: ${escapeHTML(question.explanation.join(' '))}</div>` : ''}
+            `;
+            bulkQuizPreview.appendChild(previewItem);
+        });
+
+        if (!errors.length) {
+            bulkQuizImportBtn.disabled = false;
+        }
+    }
+
+    function handleBulkQuizPreview() {
+        parsedBulkQuiz = parseBulkTrueFalseQuiz(bulkQuizInput.value);
+        renderBulkQuizPreview(parsedBulkQuiz);
+    }
+
+    async function handleBulkQuizImport() {
+        if (!parsedBulkQuiz || parsedBulkQuiz.errors.length) {
+            alert('Pre-visualize um quiz valido antes de importar.');
+            return;
+        }
+        const { data } = parsedBulkQuiz;
+        if (!confirm(`Importar o quiz "${data.title}" com ${data.questions.length} perguntas?`)) return;
+
+        bulkQuizImportBtn.disabled = true;
+        bulkQuizStatus.className = '';
+        bulkQuizStatus.innerText = 'Importando quiz...';
+
+        const quizPayload = {
+            title: data.title,
+            description: data.description,
+            quiz_type: data.quiz_type,
+            is_featured: data.is_featured
+        };
+        const { data: createdQuiz, error: quizError } = await supabaseClient.from('quizzes').insert(quizPayload).select().single();
+        if (quizError) {
+            bulkQuizStatus.className = 'bulk-error';
+            bulkQuizStatus.innerText = `Erro ao criar quiz: ${quizError.message}`;
+            bulkQuizImportBtn.disabled = false;
+            return;
+        }
+
+        const questionPayload = data.questions.map(question => ({
+            quiz_id: createdQuiz.id,
+            question_text: question.explanation.length ? `${question.question_text}\n${question.explanation.join(' ')}` : question.question_text,
+            is_true: question.is_true
+        }));
+        const { error: questionsError } = await supabaseClient.from('questions').insert(questionPayload);
+        if (questionsError) {
+            bulkQuizStatus.className = 'bulk-error';
+            bulkQuizStatus.innerText = `Quiz criado, mas houve erro ao salvar perguntas: ${questionsError.message}`;
+            bulkQuizImportBtn.disabled = false;
+            return;
+        }
+
+        bulkQuizStatus.className = 'bulk-success';
+        bulkQuizStatus.innerText = `Quiz importado com sucesso: ${data.title}.`;
+        bulkQuizInput.value = '';
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizIsFeatured.checked = false;
+        parsedBulkQuiz = null;
+        await getQuizzes();
+    }
+
+    function clearBulkQuizImport() {
+        bulkQuizInput.value = '';
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizStatus.innerText = '';
+        bulkQuizStatus.className = '';
+        bulkQuizIsFeatured.checked = false;
+        bulkQuizImportBtn.disabled = true;
+        parsedBulkQuiz = null;
     }
 
     async function loadAdminData() {
@@ -635,6 +812,17 @@ document.addEventListener('DOMContentLoaded', () => {
     quizTypeSelect.addEventListener('change', () => handleQuizTypeChange(false));
     quizFormCancelBtn.addEventListener('click', hideQuizForm);
     quizForm.addEventListener('submit', handleQuizFormSubmit);
+    bulkQuizPreviewBtn.addEventListener('click', handleBulkQuizPreview);
+    bulkQuizImportBtn.addEventListener('click', handleBulkQuizImport);
+    bulkQuizClearBtn.addEventListener('click', clearBulkQuizImport);
+    bulkQuizInput.addEventListener('input', () => {
+        bulkQuizImportBtn.disabled = true;
+        parsedBulkQuiz = null;
+    });
+    bulkQuizIsFeatured.addEventListener('change', () => {
+        bulkQuizImportBtn.disabled = true;
+        parsedBulkQuiz = null;
+    });
 
     // --- INICIALIZAÇÃO ---
     supabaseClient.auth.onAuthStateChange((_event, session) => {

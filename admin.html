@@ -128,6 +128,27 @@ Conteudo HTML:
         <hr style="margin: 20px 0;">
         <div class="form-actions"><button type="button" class="form-cancel-btn" id="quiz-form-cancel-btn">Cancelar</button><button type="submit" class="form-submit-btn">Salvar Quiz</button></div>
     </form>
+    <section id="bulk-quiz-import-section" class="form-container">
+        <h2>Importar Quiz Verdadeiro/Falso</h2>
+        <label for="bulk-quiz-input">Cole o quiz no formato numerado:</label>
+        <textarea id="bulk-quiz-input" rows="14" placeholder="Verdadeiro ou Falso - Modern Family
+1.
+Phil Dunphy trabalha como corretor de imoveis na serie.
+Verdadeiro
+
+2.
+Manny e filho biologico de Jay Pritchett.
+Falso
+Manny e filho de Gloria com o ex-marido Javier Delgado."></textarea>
+        <div style="margin-top: 15px;"><input type="checkbox" id="bulk-quiz-is-featured" style="width: auto; margin-right: 5px;"><label for="bulk-quiz-is-featured" style="display: inline;">Destaque na Home?</label></div>
+        <div class="form-actions">
+            <button type="button" class="form-cancel-btn" id="bulk-quiz-clear-btn">Limpar</button>
+            <button type="button" class="form-submit-btn" id="bulk-quiz-preview-btn">Pre-visualizar</button>
+            <button type="button" class="form-submit-btn" id="bulk-quiz-import-btn" disabled>Importar Quiz</button>
+        </div>
+        <p id="bulk-quiz-status"></p>
+        <div id="bulk-quiz-preview" class="bulk-preview"></div>
+    </section>
     <ul id="quizzes-list"></ul>
     </section>
     <script src="admin.js"></script>
