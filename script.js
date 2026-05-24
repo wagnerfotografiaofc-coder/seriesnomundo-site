@@ -330,23 +330,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(q => ({ id: String(q.id), char: q.question_text, trait: q.answers[0].answer_text }));
             if (items.length === 0) { renderFinalResult(); return; }
             const shuffledTraits = [...items].sort(() => Math.random() - 0.5);
-            let charactersHTML = items.map(item => `<div id="char-${item.id}" class="draggable-item" draggable="true" data-item-id="${item.id}">${item.char}</div>`).join('');
-            let traitsHTML = shuffledTraits.map(item => `<div class="drop-zone" data-correct-id="${item.id}"><span class="trait-text">${item.trait}</span></div>`).join('');
+            let charactersHTML = items.map(item => `<button type="button" id="char-${item.id}" class="draggable-item" draggable="true" data-item-id="${item.id}">${item.char}</button>`).join('');
+            let traitsHTML = shuffledTraits.map(item => `<button type="button" class="drop-zone" data-correct-id="${item.id}"><span class="trait-text">${item.trait}</span></button>`).join('');
             container.innerHTML = `<div class="quiz-container-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
             addDragDropListeners(roundQuestions.length);
         }
         function addDragDropListeners(questionsInRound) {
-            let dropsMade = 0; const actionButton = document.getElementById('action-button');
-            document.querySelectorAll('.draggable-item').forEach(draggable => { draggable.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', e.target.id); setTimeout(() => e.target.classList.add('dragging'), 0); }); draggable.addEventListener('dragend', () => draggable.classList.remove('dragging')); });
+            let dropsMade = 0; let selectedItem = null; const actionButton = document.getElementById('action-button');
+            function updateActionButton() { if (dropsMade === questionsInRound) actionButton.classList.remove('hidden'); }
+            function clearSelection() { document.querySelectorAll('.draggable-item.selected').forEach(item => item.classList.remove('selected')); selectedItem = null; }
+            function placeItemInZone(item, zone) {
+                if (!item || zone.querySelector('.draggable-item')) return;
+                zone.appendChild(item);
+                item.classList.remove('selected');
+                item.draggable = false;
+                dropsMade++;
+                clearSelection();
+                updateActionButton();
+            }
+            document.querySelectorAll('.draggable-item').forEach(draggable => {
+                draggable.addEventListener('click', () => {
+                    if (draggable.closest('.drop-zone')) return;
+                    if (selectedItem === draggable) { clearSelection(); return; }
+                    clearSelection();
+                    selectedItem = draggable;
+                    draggable.classList.add('selected');
+                });
+                draggable.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', e.target.id); setTimeout(() => e.target.classList.add('dragging'), 0); });
+                draggable.addEventListener('dragend', () => draggable.classList.remove('dragging'));
+            });
             document.querySelectorAll('.drop-zone').forEach(zone => {
                 zone.addEventListener('dragover', e => { e.preventDefault(); if (!zone.querySelector('.draggable-item')) zone.classList.add('drag-over'); });
                 zone.addEventListener('dragleave', e => e.currentTarget.classList.remove('drag-over'));
                 zone.addEventListener('drop', e => {
                     e.preventDefault(); e.currentTarget.classList.remove('drag-over');
                     const charId = e.dataTransfer.getData('text/plain'); const charElement = document.getElementById(charId);
-                    if (e.currentTarget.querySelector('.draggable-item') || !charElement) return;
-                    e.currentTarget.appendChild(charElement); dropsMade++;
-                    if (dropsMade === questionsInRound) actionButton.classList.remove('hidden');
+                    placeItemInZone(charElement, e.currentTarget);
+                });
+                zone.addEventListener('click', e => {
+                    if (e.currentTarget.querySelector('.draggable-item')) return;
+                    placeItemInZone(selectedItem, e.currentTarget);
                 });
             });
             actionButton.addEventListener('click', checkAnswers, { once: true });
