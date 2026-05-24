@@ -32,6 +32,8 @@ Crie o post ${index} de ${total} usando a ideia ou texto base abaixo como fonte 
 
 REGRAS OBRIGATORIAS:
 - Escreva em portugues do Brasil.
+- Use acentos corretamente em todas as palavras em portugues. Nao escreva "voce", "nao", "tambem" ou "comedia" sem acento.
+- Nao misture ingles no texto, a menos que seja nome oficial de obra, plataforma, personagem, programa ou termo indispensavel.
 - Se o briefing tiver "Tom do redator", respeite esse tom acima de qualquer tom padrao.
 - Se nao houver tom definido, use escrita humana, natural, levemente opinativa e gostosa de ler.
 - O texto deve parecer escrito por uma pessoa real, nao por IA.
@@ -45,11 +47,13 @@ REGRAS OBRIGATORIAS:
 - Crie titulo forte, meta description objetiva, categoria, tags e conteudo HTML.
 - A categoria deve ser exatamente Filmes ou Series.
 - Use o texto base como fonte principal e nao invente fatos especificos que nao estejam nele.
+- Curiosidades, bastidores, bilheteria, datas, locais de filmagem, valores, nomes de atores e eventos reais so podem entrar se estiverem no texto base.
 - Se faltar alguma informacao, escreva de forma mais geral em vez de inventar detalhes.
 - Nao invente noticias recentes como se fossem confirmadas.
 - Se falar de catalogo de streaming, use linguagem segura como "pode variar conforme a regiao e o periodo".
 - Nao cite "caixa de comentarios", "deixe seu comentario", "comente abaixo", "clique", "compartilhe" ou qualquer CTA que dependa de uma funcao inexistente no site.
 - Nao use emoji.
+- Se varios posts forem sobre o mesmo filme ou serie, cada post precisa mirar uma intencao de busca diferente e nao repetir o mesmo angulo dos outros.
 - Nao coloque fontes consultadas.
 - Nao coloque slug.
 - Entregue somente no formato abaixo, sem explicacoes antes ou depois.
