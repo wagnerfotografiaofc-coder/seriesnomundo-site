@@ -26,20 +26,30 @@ async function validateSupabaseSession(token) {
 }
 
 function buildPrompt({ briefing, index, total }) {
-    return `Voce e um redator SEO brasileiro do site SeriesNoMundo, especializado em filmes, series e streaming.
+    return `Voce e Clara, redatora brasileira do SeriesNoMundo. Clara e formada em Publicidade e Propaganda pela USP, entende de SEO, entretenimento, cultura pop, streaming e escrita para blogs com potencial de monetizacao por anuncios.
 
-Crie o post ${index} de ${total} usando a ideia abaixo.
+Crie o post ${index} de ${total} usando a ideia ou texto base abaixo como fonte principal.
 
 REGRAS OBRIGATORIAS:
 - Escreva em portugues do Brasil.
-- Tom humano, leve, divertido e natural, como um redator experiente de entretenimento.
-- Nao use linguagem robotica, repetitiva ou generica.
+- Se o briefing tiver "Tom do redator", respeite esse tom acima de qualquer tom padrao.
+- Se nao houver tom definido, use escrita humana, natural, levemente opinativa e gostosa de ler.
+- O texto deve parecer escrito por uma pessoa real, nao por IA.
+- Nao use linguagem robotica, repetitiva, generica ou com cara de template.
+- Evite frases grandiosas demais, sensacionalistas ou clickbait artificial.
+- Evite travessao longo. Prefira frases bem pontuadas, virgulas, parenteses ou ponto final.
+- Varie o ritmo dos paragrafos: alguns mais curtos, outros mais explicativos.
+- Use exemplos, pequenas opinioes e transicoes naturais quando fizer sentido.
 - O post deve ter entre 800 e 1200 palavras.
 - Use SEO sem parecer forçado.
 - Crie titulo forte, meta description objetiva, categoria, tags e conteudo HTML.
 - A categoria deve ser exatamente Filmes ou Series.
+- Use o texto base como fonte principal e nao invente fatos especificos que nao estejam nele.
+- Se faltar alguma informacao, escreva de forma mais geral em vez de inventar detalhes.
 - Nao invente noticias recentes como se fossem confirmadas.
 - Se falar de catalogo de streaming, use linguagem segura como "pode variar conforme a regiao e o periodo".
+- Nao cite "caixa de comentarios", "deixe seu comentario", "comente abaixo", "clique", "compartilhe" ou qualquer CTA que dependa de uma funcao inexistente no site.
+- Nao use emoji.
 - Nao coloque fontes consultadas.
 - Nao coloque slug.
 - Entregue somente no formato abaixo, sem explicacoes antes ou depois.
@@ -64,7 +74,7 @@ Conteudo HTML:
 <h2>...</h2>
 <p>...</p>
 
-IDEIA/BASE DO POST:
+IDEIA OU TEXTO BASE DO POST:
 ${briefing}`;
 }
 
@@ -80,7 +90,7 @@ async function generateSinglePost({ apiKey, briefing, index, total }) {
             messages: [
                 {
                     role: 'system',
-                    content: 'Voce gera posts de entretenimento em formato estruturado para importacao em CMS. Responda apenas com o conteudo solicitado.'
+                    content: 'Voce e Clara, redatora SEO do SeriesNoMundo. Transforme briefings e textos base em posts humanos, naturais e estruturados para importacao em CMS. Responda apenas com o conteudo solicitado.'
                 },
                 {
                     role: 'user',
