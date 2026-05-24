@@ -25,15 +25,21 @@ async function validateSupabaseSession(token) {
     return response.ok;
 }
 
+function createApiError(message, details = {}) {
+    const error = new Error(message);
+    error.details = details;
+    return error;
+}
+
 function buildPrompt({ briefing, index, total }) {
-    return `Voce e Clara, redatora brasileira do SeriesNoMundo. Clara e formada em Publicidade e Propaganda pela USP, entende de SEO, entretenimento, cultura pop, streaming e escrita para blogs com potencial de monetizacao por anuncios.
+    return `Voce e Clara, redatora brasileira do SeriesNoMundo. Clara e formada em Publicidade e Propaganda pela USP, entende de SEO, entretenimento, cultura pop, streaming e escrita para blogs com potencial de monetizacao por anuncios. Ela escreve com naturalidade, criterio e clareza, sem soar empolgada demais.
 
 Crie o post ${index} de ${total} usando a ideia ou texto base abaixo como fonte principal. Sua funcao nao e inventar um post do zero. Sua funcao e transformar a base enviada em um artigo melhor, mais claro, mais humano e pronto para o site.
 
 PRIORIDADES:
 1. Portugues brasileiro correto, com acentos em todos os campos.
 2. Fidelidade ao texto base.
-3. Tom humano de redatora, sem cara de IA.
+3. Tom humano de redatora, sem cara de IA e sem exagero promocional.
 4. SEO natural e seguro para Google Search e Ads.
 5. Formato exato para importacao.
 
@@ -42,10 +48,12 @@ REGRAS OBRIGATORIAS:
 - Use acentos corretamente em todas as palavras em portugues, inclusive titulo, meta description, tags, h2 e paragrafos. Nunca escreva "voce", "nao", "e considerado", "tambem", "comedia", "animacao", "publico", "critica", "sequencia", "mudanca", "genero", "coracao", "lancado" ou "tecnico" sem acento.
 - Nao misture ingles no texto, a menos que seja nome oficial de obra, plataforma, personagem, programa ou termo indispensavel.
 - Se o briefing tiver "Tom do redator", respeite esse tom acima de qualquer tom padrao.
-- Se nao houver tom definido, use escrita humana, natural, levemente opinativa e gostosa de ler.
+- Se nao houver tom definido, use escrita humana, natural, levemente opinativa, calma e gostosa de ler.
 - O texto deve parecer escrito por uma pessoa real, nao por IA.
 - Nao use linguagem robotica, repetitiva, generica ou com cara de template.
 - Evite frases grandiosas demais, sensacionalistas ou clickbait artificial.
+- Evite superlativos vagos como "avassalador", "revolucionario", "fenomenal", "imperdivel", "definitivo", "maestria", "obra-prima" e "marco absoluto", a menos que o texto base realmente peca esse tom.
+- Prefira analise concreta: explique o motivo do sucesso, da critica ou do impacto sem inflar o texto.
 - Nao use travessao longo. O caractere "—" e proibido na resposta. Use virgulas, dois-pontos, parenteses ou ponto final.
 - Varie o ritmo dos paragrafos: alguns mais curtos, outros mais explicativos.
 - Use exemplos, pequenas opinioes e transicoes naturais quando fizer sentido.
@@ -166,15 +174,37 @@ async function polishGeneratedPost({ apiKey, content, index }) {
         })
     });
 
-    const data = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    let data = {};
+    try {
+        data = responseText ? JSON.parse(responseText) : {};
+    } catch (_error) {
+        throw createApiError(`Resposta invalida da DeepSeek ao revisar o post ${index}.`, {
+            stage: 'polish',
+            post: index,
+            status: response.status,
+            responsePreview: responseText.slice(0, 300)
+        });
+    }
 
     if (!response.ok) {
         const message = data?.error?.message || `Erro ao revisar o post ${index}.`;
-        throw new Error(message);
+        throw createApiError(message, {
+            stage: 'polish',
+            post: index,
+            status: response.status,
+            deepseekError: data?.error
+        });
     }
 
     const polishedContent = data?.choices?.[0]?.message?.content?.trim();
-    if (!polishedContent) throw new Error(`A revisao respondeu vazia no post ${index}.`);
+    if (!polishedContent) {
+        throw createApiError(`A revisao respondeu vazia no post ${index}.`, {
+            stage: 'polish',
+            post: index,
+            finishReason: data?.choices?.[0]?.finish_reason
+        });
+    }
     return removeLongDashes(polishedContent);
 }
 
@@ -203,18 +233,38 @@ async function callDeepSeek({ apiKey, briefing, index, total, temperature }) {
         })
     });
 
-    const data = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+    let data = {};
+    try {
+        data = responseText ? JSON.parse(responseText) : {};
+    } catch (_error) {
+        throw createApiError(`Resposta invalida da DeepSeek ao gerar o post ${index}.`, {
+            stage: 'generate',
+            post: index,
+            status: response.status,
+            responsePreview: responseText.slice(0, 300)
+        });
+    }
 
     if (!response.ok) {
         const message = data?.error?.message || 'Erro ao chamar a DeepSeek.';
-        throw new Error(message);
+        throw createApiError(message, {
+            stage: 'generate',
+            post: index,
+            status: response.status,
+            deepseekError: data?.error
+        });
     }
 
     const choice = data?.choices?.[0];
     const content = choice?.message?.content?.trim();
     if (!content) {
         const reason = choice?.finish_reason ? ` Motivo: ${choice.finish_reason}.` : '';
-        throw new Error(`A DeepSeek respondeu vazio no post ${index}.${reason}`);
+        throw createApiError(`A DeepSeek respondeu vazio no post ${index}.${reason}`, {
+            stage: 'generate',
+            post: index,
+            finishReason: choice?.finish_reason
+        });
     }
     return content;
 }
@@ -247,6 +297,7 @@ module.exports = async function handler(request, response) {
     if (!apiKey) {
         return sendJson(response, 500, { error: 'A chave DEEPSEEK_API_KEY ainda nao foi configurada na Vercel.' });
     }
+    const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
     const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     const isLoggedIn = await validateSupabaseSession(token);
@@ -267,6 +318,7 @@ module.exports = async function handler(request, response) {
 
     const sections = splitBriefings(briefingsText);
     try {
+        const startedAt = Date.now();
         const postRequests = Array.from({ length: count }, (_item, itemIndex) => {
             const index = itemIndex + 1;
             const briefing = sections[index - 1] || briefingsText;
@@ -279,8 +331,27 @@ module.exports = async function handler(request, response) {
 
         const posts = results.map(result => result.value);
 
-        return sendJson(response, 200, { content: posts.join('\n\n\n') });
+        return sendJson(response, 200, {
+            content: posts.join('\n\n\n'),
+            debug: {
+                model,
+                count,
+                seconds: Math.round((Date.now() - startedAt) / 1000)
+            }
+        });
     } catch (error) {
-        return sendJson(response, 502, { error: error.message || 'Erro ao gerar posts.' });
+        return sendJson(response, 502, {
+            error: error.message || 'Erro ao gerar posts.',
+            debug: {
+                model,
+                count,
+                stage: error.details?.stage || 'unknown',
+                post: error.details?.post || null,
+                status: error.details?.status || null,
+                finishReason: error.details?.finishReason || null,
+                responsePreview: error.details?.responsePreview || null,
+                deepseekError: error.details?.deepseekError || null
+            }
+        });
     }
 };

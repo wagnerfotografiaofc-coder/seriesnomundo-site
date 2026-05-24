@@ -90,14 +90,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ count, briefings })
             });
 
-            const result = await response.json().catch(() => ({}));
+            const responseText = await response.text();
+            let result = {};
+            try {
+                result = responseText ? JSON.parse(responseText) : {};
+            } catch (_error) {
+                throw new Error(`Erro inesperado da Vercel (${response.status}). Tente gerar menos posts por vez.`);
+            }
 
             if (!response.ok) {
-                throw new Error(result.error || 'Nao foi possivel gerar os posts.');
+                const debugParts = [];
+                if (result.debug?.model) debugParts.push(`modelo: ${result.debug.model}`);
+                if (result.debug?.post) debugParts.push(`post: ${result.debug.post}`);
+                if (result.debug?.stage) debugParts.push(`etapa: ${result.debug.stage}`);
+                if (result.debug?.status) debugParts.push(`status: ${result.debug.status}`);
+                const debugMessage = debugParts.length ? ` (${debugParts.join(' | ')})` : '';
+                throw new Error(`${result.error || 'Nao foi possivel gerar os posts.'}${debugMessage}`);
             }
 
             generatedOutput.value = result.content || '';
-            setStatus(`${count} post${count > 1 ? 's' : ''} gerado${count > 1 ? 's' : ''}. Revise antes de importar.`, 'success');
+            const timing = result.debug?.seconds ? ` em ${result.debug.seconds}s` : '';
+            setStatus(`${count} post${count > 1 ? 's' : ''} gerado${count > 1 ? 's' : ''}${timing}. Revise antes de importar.`, 'success');
         } catch (error) {
             setStatus(error.message, 'error');
         } finally {
