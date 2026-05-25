@@ -47,8 +47,10 @@ Regras:
 
 Estrutura obrigatoria:
 - Exatamente 4 subtitulos em <h2>.
-- Exatamente 3 paragrafos em <p> por subtitulo.
-- Cada paragrafo deve ter 2 a 4 frases.
+- Exatamente 4 paragrafos em <p> por subtitulo.
+- Cada paragrafo deve ter 2 a 4 frases completas.
+- O post final deve ter no minimo 600 palavras. Ideal: 650 a 850 palavras.
+- Para crescer sem enrolar, use detalhes do texto base, analise de personagens, contexto, impacto no publico e diferencas entre fases.
 - Nao escreva introducao antes do primeiro <h2> nem conclusao fora desses 4 blocos.
 
 FORMATO EXATO:
@@ -70,15 +72,19 @@ Conteudo HTML:
 <p>...</p>
 <p>...</p>
 <p>...</p>
-<h2>...</h2>
-<p>...</p>
-<p>...</p>
 <p>...</p>
 <h2>...</h2>
 <p>...</p>
 <p>...</p>
 <p>...</p>
+<p>...</p>
 <h2>...</h2>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<h2>...</h2>
+<p>...</p>
 <p>...</p>
 <p>...</p>
 <p>...</p>
@@ -124,7 +130,8 @@ TAREFA:
 - Corrigir acentos e ortografia do portugues brasileiro.
 - Remover todos os travessoes longos. O caractere "—" e proibido.
 - Manter exatamente o mesmo formato: Titulo SEO, Meta description, Categoria, Tags e Conteudo HTML.
-- Manter exatamente 4 subtitulos <h2>, com exatamente 3 paragrafos <p> em cada subtitulo.
+- Manter exatamente 4 subtitulos <h2>, com exatamente 4 paragrafos <p> em cada subtitulo.
+- Manter no minimo 600 palavras no Conteudo HTML.
 - Manter as mesmas ideias, fatos, titulos, tags e estrutura HTML.
 - Nao adicionar fatos novos.
 - Nao resumir.
