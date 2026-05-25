@@ -298,8 +298,16 @@ module.exports = async function handler(request, response) {
         return sendJson(response, 401, { error: 'Login invalido ou expirado.' });
     }
 
-    const count = Math.min(10, Math.max(1, parseInt(request.body?.count, 10) || 1));
+    const requestedCount = Math.min(10, Math.max(1, parseInt(request.body?.count, 10) || 1));
     const briefingsText = String(request.body?.briefings || '').trim();
+
+    if (requestedCount > 1) {
+        return sendJson(response, 400, {
+            error: 'Por seguranca contra timeout e gasto de credito, a API agora gera 1 post por chamada. Recarregue a pagina do gerador e tente novamente.'
+        });
+    }
+
+    const count = 1;
 
     if (!briefingsText) {
         return sendJson(response, 400, { error: 'Envie pelo menos uma ideia de post.' });

@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function buildGenerationChunks(briefings, count) {
         const sections = splitBriefings(briefings);
-        const chunkSize = 3;
+        const chunkSize = 1;
         const chunks = [];
 
         for (let start = 0; start < count; start += chunkSize) {
