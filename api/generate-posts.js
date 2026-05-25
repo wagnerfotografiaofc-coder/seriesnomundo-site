@@ -49,7 +49,7 @@ Estrutura obrigatoria:
 - Exatamente 4 subtitulos em <h2>.
 - Exatamente 4 paragrafos em <p> por subtitulo.
 - Cada paragrafo deve ter 2 a 4 frases completas.
-- O post final deve ter no minimo 600 palavras. Ideal: 650 a 850 palavras.
+- O post final deve ter no minimo 600 palavras. Ideal: 600 a 750 palavras.
 - Para crescer sem enrolar, use detalhes do texto base, analise de personagens, contexto, impacto no publico e diferencas entre fases.
 - Nao escreva introducao antes do primeiro <h2> nem conclusao fora desses 4 blocos.
 

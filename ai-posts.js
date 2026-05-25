@@ -60,6 +60,61 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.session?.access_token || '';
     }
 
+    function splitBriefings(rawText) {
+        return String(rawText || '')
+            .split(/\n\s*(?:---+|###)\s*\n/g)
+            .map(section => section.trim())
+            .filter(Boolean);
+    }
+
+    function buildGenerationChunks(briefings, count) {
+        const sections = splitBriefings(briefings);
+        const chunkSize = 3;
+        const chunks = [];
+
+        for (let start = 0; start < count; start += chunkSize) {
+            const chunkCount = Math.min(chunkSize, count - start);
+            const chunkSections = sections.slice(start, start + chunkCount);
+            chunks.push({
+                count: chunkCount,
+                briefings: chunkSections.length ? chunkSections.join('\n\n---\n\n') : briefings
+            });
+        }
+
+        return chunks;
+    }
+
+    async function requestGeneratedPosts({ count, briefings, accessToken }) {
+        const response = await fetch('/api/generate-posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ count, briefings })
+        });
+
+        const responseText = await response.text();
+        let result = {};
+        try {
+            result = responseText ? JSON.parse(responseText) : {};
+        } catch (_error) {
+            throw new Error(`Erro inesperado da Vercel (${response.status}). A geracao demorou demais. Tente novamente em blocos menores.`);
+        }
+
+        if (!response.ok) {
+            const debugParts = [];
+            if (result.debug?.model) debugParts.push(`modelo: ${result.debug.model}`);
+            if (result.debug?.post) debugParts.push(`post: ${result.debug.post}`);
+            if (result.debug?.stage) debugParts.push(`etapa: ${result.debug.stage}`);
+            if (result.debug?.status) debugParts.push(`status: ${result.debug.status}`);
+            const debugMessage = debugParts.length ? ` (${debugParts.join(' | ')})` : '';
+            throw new Error(`${result.error || 'Nao foi possivel gerar os posts.'}${debugMessage}`);
+        }
+
+        return result;
+    }
+
     async function handleGenerate() {
         const briefings = briefingsInput.value.trim();
         const count = Math.min(10, Math.max(1, parseInt(postCount.value, 10) || 1));
@@ -78,38 +133,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         generateBtn.disabled = true;
         generatedOutput.value = '';
-        setStatus(`Gerando ${count} post${count > 1 ? 's' : ''}... isso pode levar um pouco.`, '');
+        const chunks = buildGenerationChunks(briefings, count);
+        setStatus(`Gerando ${count} post${count > 1 ? 's' : ''} em ${chunks.length} rodada${chunks.length > 1 ? 's' : ''}...`, '');
 
         try {
-            const response = await fetch('/api/generate-posts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                body: JSON.stringify({ count, briefings })
-            });
-
-            const responseText = await response.text();
-            let result = {};
-            try {
-                result = responseText ? JSON.parse(responseText) : {};
-            } catch (_error) {
-                throw new Error(`Erro inesperado da Vercel (${response.status}). Tente gerar menos posts por vez.`);
+            const startedAt = Date.now();
+            const contents = [];
+            for (let index = 0; index < chunks.length; index++) {
+                const chunk = chunks[index];
+                setStatus(`Gerando rodada ${index + 1} de ${chunks.length} (${chunk.count} post${chunk.count > 1 ? 's' : ''})...`, '');
+                const result = await requestGeneratedPosts({ ...chunk, accessToken });
+                if (result.content) contents.push(result.content);
             }
 
-            if (!response.ok) {
-                const debugParts = [];
-                if (result.debug?.model) debugParts.push(`modelo: ${result.debug.model}`);
-                if (result.debug?.post) debugParts.push(`post: ${result.debug.post}`);
-                if (result.debug?.stage) debugParts.push(`etapa: ${result.debug.stage}`);
-                if (result.debug?.status) debugParts.push(`status: ${result.debug.status}`);
-                const debugMessage = debugParts.length ? ` (${debugParts.join(' | ')})` : '';
-                throw new Error(`${result.error || 'Nao foi possivel gerar os posts.'}${debugMessage}`);
-            }
-
-            generatedOutput.value = result.content || '';
-            const timing = result.debug?.seconds ? ` em ${result.debug.seconds}s` : '';
+            generatedOutput.value = contents.join('\n\n\n');
+            const timing = ` em ${Math.round((Date.now() - startedAt) / 1000)}s`;
             setStatus(`${count} post${count > 1 ? 's' : ''} gerado${count > 1 ? 's' : ''}${timing}. Revise antes de importar.`, 'success');
         } catch (error) {
             setStatus(error.message, 'error');
