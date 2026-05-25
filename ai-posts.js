@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             briefing,
             result: '',
             error: '',
+            debug: null,
             status: 'pending',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -154,6 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<label for="result-${item.id}">Rascunho gerado:</label><textarea id="result-${item.id}" class="draft-output" readonly>${escapeHTML(item.result)}</textarea>`
                 : '';
             const errorHtml = item.error ? `<p class="status error">${escapeHTML(item.error)}</p>` : '';
+            const usage = item.debug?.usage;
+            const debugHtml = usage?.total_tokens ? `<div class="queue-meta">Tokens: ${usage.total_tokens} total (${usage.prompt_tokens} entrada + ${usage.completion_tokens} saida) | Revisao extra: ${item.debug.polished ? 'sim' : 'nao'} | Tempo: ${item.debug.seconds || 0}s</div>` : '';
             const retryButton = status === 'error' ? `<button type="button" class="form-cancel-btn" data-action="retry" data-id="${item.id}">Tentar de novo</button>` : '';
             const copyButton = item.result ? `<button type="button" class="copy-btn" data-action="copy" data-id="${item.id}">Copiar post</button>` : '';
 
@@ -168,6 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="queue-preview">${escapeHTML(preview)}</div>
                     ${errorHtml}
+                    ${debugHtml}
                     ${resultTextarea}
                     <div class="item-actions">
                         ${copyButton}
@@ -233,7 +237,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!result.content) throw new Error(`A IA respondeu vazia no post ${index}.`);
-        return result.content.trim();
+        return {
+            content: result.content.trim(),
+            debug: result.debug || null
+        };
     }
 
     async function generateQueue() {
@@ -272,9 +279,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setStatus(`Gerando texto ${itemIndex} de ${queue.length}...`, '');
 
             try {
-                const content = await requestGeneratedPost({ briefing: item.briefing, accessToken, index: itemIndex });
+                const generatedPost = await requestGeneratedPost({ briefing: item.briefing, accessToken, index: itemIndex });
                 generated += 1;
-                updateItem(item.id, { status: 'done', result: content, error: '' });
+                updateItem(item.id, { status: 'done', result: generatedPost.content, error: '', debug: generatedPost.debug });
             } catch (error) {
                 failed += 1;
                 updateItem(item.id, { status: 'error', error: error.message || 'Erro desconhecido ao gerar este post.' });
@@ -315,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function retryItem(id) {
-        updateItem(id, { status: 'pending', error: '', result: '' });
+        updateItem(id, { status: 'pending', error: '', result: '', debug: null });
         setStatus('Item voltou para a fila.', 'success');
     }
 

@@ -120,7 +120,40 @@ function removeLongDashes(content) {
 }
 
 function needsEditorialPolish(content) {
+    if (process.env.DEEPSEEK_POLISH !== 'true') return false;
     return content.includes('—') || COMMON_ACCENT_ISSUES.some(pattern => pattern.test(content));
+}
+
+function emptyUsage() {
+    return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+}
+
+function normalizeUsage(usage) {
+    return {
+        prompt_tokens: Number(usage?.prompt_tokens || 0),
+        completion_tokens: Number(usage?.completion_tokens || 0),
+        total_tokens: Number(usage?.total_tokens || 0)
+    };
+}
+
+function mergeUsage(...items) {
+    return items.reduce((total, usage) => {
+        const current = normalizeUsage(usage);
+        total.prompt_tokens += current.prompt_tokens;
+        total.completion_tokens += current.completion_tokens;
+        total.total_tokens += current.total_tokens;
+        return total;
+    }, emptyUsage());
+}
+
+function hasExpectedPostFormat(content) {
+    return /Titulo SEO\s*:/i.test(content)
+        && /Meta description\s*:/i.test(content)
+        && /Categoria\s*:/i.test(content)
+        && /Tags\s*:/i.test(content)
+        && /Conteudo HTML\s*:/i.test(content)
+        && /<h2[\s>]/i.test(content)
+        && /<p[\s>]/i.test(content);
 }
 
 function buildPolishPrompt(content) {
@@ -198,7 +231,10 @@ async function polishGeneratedPost({ apiKey, content, index }) {
             finishReason: data?.choices?.[0]?.finish_reason
         });
     }
-    return removeLongDashes(polishedContent);
+    return {
+        content: removeLongDashes(polishedContent),
+        usage: normalizeUsage(data?.usage)
+    };
 }
 
 async function callDeepSeek({ apiKey, briefing, index, total, temperature }) {
@@ -222,7 +258,7 @@ async function callDeepSeek({ apiKey, briefing, index, total, temperature }) {
                 }
             ],
             temperature,
-            max_tokens: 5000
+            max_tokens: 3600
         })
     });
 
@@ -259,25 +295,49 @@ async function callDeepSeek({ apiKey, briefing, index, total, temperature }) {
             finishReason: choice?.finish_reason
         });
     }
-    return content;
+    return {
+        content,
+        usage: normalizeUsage(data?.usage)
+    };
 }
 
 async function generateSinglePost({ apiKey, briefing, index, total }) {
-    let content;
+    let generated;
 
     try {
-        content = await callDeepSeek({ apiKey, briefing, index, total, temperature: 0.62 });
+        generated = await callDeepSeek({ apiKey, briefing, index, total, temperature: 0.62 });
     } catch (error) {
         if (!error.message.includes('respondeu vazio')) throw error;
-        content = await callDeepSeek({ apiKey, briefing, index, total, temperature: 0.45 });
+        generated = await callDeepSeek({ apiKey, briefing, index, total, temperature: 0.45 });
     }
 
-    content = removeLongDashes(content);
+    let content = removeLongDashes(generated.content);
+    let usage = normalizeUsage(generated.usage);
+    let polished = false;
+
     if (needsEditorialPolish(content)) {
-        content = await polishGeneratedPost({ apiKey, content, index });
+        const polish = await polishGeneratedPost({ apiKey, content, index });
+        content = polish.content;
+        usage = mergeUsage(usage, polish.usage);
+        polished = true;
     }
 
-    return removeLongDashes(content);
+    if (!hasExpectedPostFormat(content)) {
+        throw createApiError(`O post ${index} veio fora do formato do importador. Tente novamente com uma base menor ou mais direta.`, {
+            stage: 'format',
+            post: index,
+            responsePreview: content.slice(0, 300)
+        });
+    }
+
+    return {
+        content: removeLongDashes(content),
+        debug: {
+            polished,
+            usage,
+            outputCharacters: content.length
+        }
+    };
 }
 
 module.exports = async function handler(request, response) {
@@ -330,14 +390,18 @@ module.exports = async function handler(request, response) {
         const failedResult = results.find(result => result.status === 'rejected');
         if (failedResult) throw failedResult.reason;
 
-        const posts = results.map(result => result.value);
+        const posts = results.map(result => result.value.content);
+        const usage = mergeUsage(...results.map(result => result.value.debug?.usage));
 
         return sendJson(response, 200, {
             content: posts.join('\n\n\n'),
             debug: {
                 model,
                 count,
-                seconds: Math.round((Date.now() - startedAt) / 1000)
+                seconds: Math.round((Date.now() - startedAt) / 1000),
+                usage,
+                polished: results.some(result => result.value.debug?.polished),
+                outputCharacters: results.reduce((total, result) => total + Number(result.value.debug?.outputCharacters || 0), 0)
             }
         });
     } catch (error) {
