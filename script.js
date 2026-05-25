@@ -300,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'true_false': await playTrueFalseQuiz(quiz); break;
             case 'trivia': case 'who_am_i': await playTriviaQuiz(quiz); break;
             case 'association': await playAssociationQuiz(quiz); break;
+            case 'personality': await playPersonalityQuiz(quiz); break;
             default: container.innerHTML = `<h1>O motor para o quiz tipo "${quiz.quiz_type}" ainda está em construção!</h1>`;
         }
     }
@@ -341,6 +342,51 @@ document.addEventListener('DOMContentLoaded', () => {
         startQuiz();
     }
 
+    async function playPersonalityQuiz(quiz) {
+        const { data: questions, error } = await supabaseClient
+            .from('questions')
+            .select('id,question_text,answers(answer_text,points_to)')
+            .eq('quiz_id', quiz.id)
+            .order('id');
+        if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
+
+        let currentQuestionIndex = 0; const scores = {}; const container = document.getElementById('quiz-player-container');
+        function renderQuestion() {
+            const question = questions[currentQuestionIndex];
+            const answers = (question.answers || []).filter(answer => answer.answer_text && answer.points_to);
+            if (answers.length === 0) { nextStep(); return; }
+            const answersHTML = answers.map(answer => `<button class="answer-btn personality-btn" data-result="${answer.points_to}">${answer.answer_text}</button>`).join('');
+            container.innerHTML = `<div class="quiz-container-player personality-player"><p>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</p><h2 class="text-page-title">${question.question_text}</h2><div class="answer-options">${answersHTML}</div></div>`;
+            document.querySelectorAll('.personality-btn').forEach(button => button.addEventListener('click', handleAnswer));
+        }
+        function handleAnswer(e) {
+            const result = e.currentTarget.dataset.result;
+            scores[result] = (scores[result] || 0) + 1;
+            e.currentTarget.classList.add('selected-answer');
+            document.querySelectorAll('.personality-btn').forEach(btn => btn.disabled = true);
+            setTimeout(nextStep, 350);
+        }
+        function nextStep() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) renderQuestion();
+            else renderFinalResult();
+        }
+        function renderFinalResult() {
+            const entries = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            const resultName = entries[0]?.[0] || 'Resultado indefinido';
+            const resultScore = entries[0]?.[1] || 0;
+            const percentage = Math.round((resultScore / questions.length) * 100);
+            container.innerHTML = `<div class="quiz-container-player personality-player result-card"><p>Seu resultado</p><h2 class="text-page-title">${resultName}</h2><p id="result-score">${percentage}%</p><p>Esse foi o perfil que mais combinou com suas respostas.</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`;
+            container.querySelector('#restart-button').addEventListener('click', startQuiz);
+        }
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            Object.keys(scores).forEach(key => delete scores[key]);
+            renderQuestion();
+        }
+        startQuiz();
+    }
+
     async function playAssociationQuiz(quiz) {
         const { data: questions, error } = await supabaseClient.from('questions').select('id,question_text,answers(answer_text)').eq('quiz_id', quiz.id).order('id');
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
@@ -356,25 +402,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const shuffledTraits = [...items].sort(() => Math.random() - 0.5);
             let charactersHTML = items.map(item => `<button type="button" id="char-${item.id}" class="draggable-item" draggable="true" data-item-id="${item.id}">${item.char}</button>`).join('');
             let traitsHTML = shuffledTraits.map(item => `<button type="button" class="drop-zone" data-correct-id="${item.id}"><span class="trait-text">${item.trait}</span></button>`).join('');
-            container.innerHTML = `<div class="quiz-container-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
-            addDragDropListeners(roundQuestions.length);
+            container.innerHTML = `<div class="quiz-container-player association-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
+            addDragDropListeners(items.length);
         }
         function addDragDropListeners(questionsInRound) {
-            let dropsMade = 0; let selectedItem = null; const actionButton = document.getElementById('action-button');
-            function updateActionButton() { if (dropsMade === questionsInRound) actionButton.classList.remove('hidden'); }
+            let selectedItem = null; const actionButton = document.getElementById('action-button');
+            function updateActionButton() {
+                const filledZones = document.querySelectorAll('.drop-zone .draggable-item').length;
+                actionButton.classList.toggle('hidden', filledZones !== questionsInRound);
+            }
             function clearSelection() { document.querySelectorAll('.draggable-item.selected').forEach(item => item.classList.remove('selected')); selectedItem = null; }
             function placeItemInZone(item, zone) {
                 if (!item || zone.querySelector('.draggable-item')) return;
                 zone.appendChild(item);
                 item.classList.remove('selected');
-                item.draggable = false;
-                dropsMade++;
+                item.draggable = true;
                 clearSelection();
                 updateActionButton();
             }
             document.querySelectorAll('.draggable-item').forEach(draggable => {
                 draggable.addEventListener('click', () => {
-                    if (draggable.closest('.drop-zone')) return;
                     if (selectedItem === draggable) { clearSelection(); return; }
                     clearSelection();
                     selectedItem = draggable;

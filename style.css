@@ -210,6 +210,12 @@ footer {
 
 /* --- ESTILOS DO MOTOR DE QUIZ --- */
 .quiz-container-player { background-color: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 15px; padding: 30px; width: 100%; max-width: 700px; margin: 40px auto; text-align: center; transition: background-color 0.3s; }
+.personality-player,
+.association-player {
+    max-width: 860px;
+    border-color: rgba(232, 89, 12, 0.42);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+}
 .tf-options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
 .tf-btn { background-color: #333; border: 2px solid var(--cor-borda); color: var(--cor-texto-principal); padding: 20px; font-size: 1.5em; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.2s, background-color 0.2s; }
 .tf-btn:hover:not(:disabled) {  transform: scale(1.05); 
@@ -246,31 +252,47 @@ footer {
     border-color: var(--cor-destaque);
     color: var(--cor-texto-titulo);
 }
+.answer-btn.selected-answer {
+    background-color: var(--cor-destaque);
+    border-color: var(--cor-destaque);
+    color: var(--cor-texto-titulo);
+}
+.result-card {
+    background:
+        linear-gradient(145deg, rgba(232, 89, 12, 0.18), rgba(232, 89, 12, 0.04)),
+        var(--cor-fundo-card);
+}
 
 /* --- ESTILOS DO JOGO DE ASSOCIAÇÃO --- */
 .association-game-area {
-    display: flex;
-    justify-content: space-around;
-    gap: 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 22px;
     margin-top: 30px;
+    align-items: stretch;
 }
 .draggable-column, .droppable-column {
-    width: 48%;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 14px;
+    min-width: 0;
 }
 .draggable-item {
     background-color: #333;
     border: 2px solid var(--cor-borda);
     color: var(--cor-texto-titulo);
-    padding: 20px;
-    font-size: 1.2em;
+    min-height: 68px;
+    padding: 15px 16px;
+    font-size: 1.05em;
     font-weight: bold;
     border-radius: 8px;
     cursor: grab;
     font-family: var(--fonte-titulo);
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-wrap: anywhere;
     transition: opacity 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 .draggable-item:hover,
@@ -285,11 +307,11 @@ footer {
 }
 .drop-zone {
     background:
-        linear-gradient(135deg, rgba(232, 89, 12, 0.22), rgba(232, 89, 12, 0.06)),
+        linear-gradient(135deg, rgba(232, 89, 12, 0.3), rgba(232, 89, 12, 0.08)),
         var(--cor-fundo);
     border: 2px solid rgba(232, 89, 12, 0.62);
     border-radius: 8px;
-    min-height: 70px;
+    min-height: 74px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -300,6 +322,7 @@ footer {
     font-weight: 800;
     text-align: center;
     cursor: pointer;
+    overflow-wrap: anywhere;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.22);
     transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
@@ -312,13 +335,15 @@ footer {
     transform: translateY(-2px);
 }
 .drop-zone .draggable-item {
-    cursor: default;
+    cursor: grab;
     width: 100%;
+    min-height: 52px;
+    padding: 12px 14px;
 }
-.drop-zone.correct { border-color: var(--cor-correta); background-color: rgba(47, 158, 68, 0.1); }
-.drop-zone.correct .draggable-item { background-color: var(--cor-correta); border-color: var(--cor-correta); }
-.drop-zone.incorrect { border-color: var(--cor-incorreta); background-color: rgba(201, 42, 42, 0.1); }
-.drop-zone.incorrect .draggable-item { background-color: var(--cor-incorreta); border-color: var(--cor-incorreta); }
+.drop-zone.correct { border-color: var(--cor-correta); background: rgba(47, 158, 68, 0.16); }
+.drop-zone.correct .draggable-item { background-color: var(--cor-correta) !important; border-color: var(--cor-correta) !important; }
+.drop-zone.incorrect { border-color: var(--cor-incorreta); background: rgba(201, 42, 42, 0.16); }
+.drop-zone.incorrect .draggable-item { background-color: var(--cor-incorreta) !important; border-color: var(--cor-incorreta) !important; }
 
 /* --- ESTILOS "LEIA TAMBÉM" (SUGESTÕES) --- */
 #read-also-section { 
@@ -398,7 +423,7 @@ footer {
         justify-content: flex-start;
     }
     .association-game-area {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     .draggable-column, .droppable-column {
         width: 100%;
