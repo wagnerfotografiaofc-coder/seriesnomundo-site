@@ -38,7 +38,8 @@ function slugify(value) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
-    return slug.slice(0, 90).replace(/-+$/g, '') || 'post';
+    const limitedSlug = slug.length > 90 ? slug.slice(0, 90).replace(/-[a-z0-9]*$/g, '') : slug;
+    return limitedSlug.replace(/(?:-(?:a|as|com|da|das|de|do|dos|e|em|na|nas|no|nos|o|os|para|por))+$/g, '').replace(/-+$/g, '') || 'post';
 }
 
 function getPostPath(post) {
@@ -95,8 +96,7 @@ function getOrganizationSchema() {
         '@type': 'Organization',
         name: 'Series No Mundo',
         url: SITE_URL,
-        logo: `${SITE_URL}/imagens/sofa.png`,
-        sameAs: ['https://www.instagram.com/series_no_mundo']
+        logo: `${SITE_URL}/imagens/sofa.png`
     };
 }
 
@@ -265,6 +265,7 @@ function normalizePostContent(content) {
     html = html.replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '');
     html = html.replace(/<head[\s\S]*?<\/head>/gi, '');
     html = html.replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '');
+    html = html.replace(/\s*:contentReference\[[^\]]+\]\{[^}]+\}/g, '');
     return html.trim();
 }
 
@@ -394,9 +395,6 @@ ${renderSuggestions(suggestions)}
                 <a href="/sobre">Sobre Nós</a>
                 <a href="/privacidade">Política de Privacidade</a>
                 <a href="/aviso-legal">Aviso Legal</a>
-            </div>
-            <div class="footer-social">
-                <a href="https://www.instagram.com/series_no_mundo" target="_blank" class="social-button instagram">Instagram</a>
             </div>
         </div>
     </footer>

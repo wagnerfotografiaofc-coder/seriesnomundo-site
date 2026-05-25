@@ -1,6 +1,12 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 Disallow: /admin.html
 Disallow: /admin.js
+Disallow: /ai-posts
+Disallow: /ai-posts.html
+Disallow: /ai-posts.js
+Disallow: /api/
+Disallow: /redes-sociais
 
 Sitemap: https://www.seriesnomundo.site/sitemap.xml

@@ -27,7 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-        return slug.slice(0, 90).replace(/-+$/g, '') || 'post';
+        const limitedSlug = slug.length > 90 ? slug.slice(0, 90).replace(/-[a-z0-9]*$/g, '') : slug;
+        return limitedSlug.replace(/(?:-(?:a|as|com|da|das|de|do|dos|e|em|na|nas|no|nos|o|os|para|por))+$/g, '').replace(/-+$/g, '') || 'post';
     }
 
     function getPostPagePath(post) {
@@ -41,6 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function getImagePathForPage(imagePath) {
         if (!imagePath || /^https?:\/\//i.test(imagePath)) return imagePath;
         return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    }
+
+    function cleanPostContent(content) {
+        return String(content || '').replace(/\s*:contentReference\[[^\]]+\]\{[^}]+\}/g, '');
     }
 
     function optimizeStaticImages() {
@@ -245,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const videoEmbedUrl = getYouTubeEmbedUrl(post.video_url);
     const videoHtml = videoEmbedUrl ? `<div class="post-video-wrapper"><iframe src="${videoEmbedUrl}" title="Trailer oficial de ${post.title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>` : '';
-    document.getElementById('post-container').innerHTML = `<button class="card-button back-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image" loading="eager" decoding="async" fetchpriority="high"><div class="text-page-content">${post.content}</div>${videoHtml}`;
+    document.getElementById('post-container').innerHTML = `<button class="card-button back-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image" loading="eager" decoding="async" fetchpriority="high"><div class="text-page-content">${cleanPostContent(post.content)}</div>${videoHtml}`;
     document.getElementById('back-button').addEventListener('click', () => { history.back(); });
 
     // 2. Lógica de Sugestão por Tags (a parte nova e correta)

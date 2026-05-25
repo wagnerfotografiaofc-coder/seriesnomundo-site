@@ -4,6 +4,48 @@
       "maxDuration": 300
     }
   },
+  "redirects": [
+    {
+      "source": "/home",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/filmes.html",
+      "destination": "/filmes",
+      "permanent": true
+    },
+    {
+      "source": "/series.html",
+      "destination": "/series",
+      "permanent": true
+    },
+    {
+      "source": "/quizzes.html",
+      "destination": "/quizzes",
+      "permanent": true
+    },
+    {
+      "source": "/sobre.html",
+      "destination": "/sobre",
+      "permanent": true
+    },
+    {
+      "source": "/privacidade.html",
+      "destination": "/privacidade",
+      "permanent": true
+    },
+    {
+      "source": "/aviso-legal.html",
+      "destination": "/aviso-legal",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/home",
