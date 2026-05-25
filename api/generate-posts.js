@@ -41,7 +41,8 @@ PRIORIDADES:
 2. Fidelidade ao texto base.
 3. Tom humano de redatora, sem cara de IA e sem exagero promocional.
 4. SEO natural e seguro para Google Search e Ads.
-5. Formato exato para importacao.
+5. Estrutura padronizada, sem decidir o tamanho por conta propria.
+6. Formato exato para importacao.
 
 REGRAS OBRIGATORIAS:
 - Escreva em portugues do Brasil.
@@ -57,11 +58,17 @@ REGRAS OBRIGATORIAS:
 - Nao use travessao longo. O caractere "—" e proibido na resposta. Use virgulas, dois-pontos, parenteses ou ponto final.
 - Varie o ritmo dos paragrafos: alguns mais curtos, outros mais explicativos.
 - Use exemplos, pequenas opinioes e transicoes naturais quando fizer sentido.
-- O post deve ter entre 800 e 1200 palavras.
+- O post deve seguir uma estrutura fixa: exatamente 4 subtitulos em <h2>.
+- Cada subtitulo deve ter exatamente 4 paragrafos em <p>.
+- Cada paragrafo deve ter entre 3 e 5 frases, com desenvolvimento real da ideia.
+- Nao escreva introducao antes do primeiro <h2> e nao escreva conclusao fora dos 4 subtitulos.
+- O post deve ter profundidade suficiente para SEO, sem ficar raso ou resumido.
 - Use SEO sem parecer forçado.
 - Crie titulo forte, meta description objetiva, categoria, tags e conteudo HTML.
 - A categoria deve ser exatamente Filmes ou Series.
 - Use o texto base como fonte principal e nao invente fatos especificos que nao estejam nele.
+- Nao acrescente contexto externo sobre carreira, filmografia, titulos anteriores, datas, plataformas, bilheteria ou nomes de obras se isso nao estiver claramente no texto base.
+- Se o texto base tiver uma lacuna, nao tente completar com memoria. Reescreva de forma geral e segura.
 - Curiosidades, bastidores, bilheteria, datas, locais de filmagem, valores, nomes de atores e eventos reais so podem entrar se estiverem no texto base.
 - Quando mencionar curiosidades, bastidores, rumores, entrevistas, valores, numeros ou informacoes que dependem de fonte externa, use atribuicoes seguras como "segundo relatos", "de acordo com informacoes divulgadas na epoca", "em entrevistas da epoca" ou "dados de bilheteria apontam".
 - Nao apresente curiosidades de bastidor como certeza absoluta se o texto base nao trouxer uma fonte clara.
@@ -94,7 +101,23 @@ Conteudo HTML:
 
 <h2>...</h2>
 <p>...</p>
+<p>...</p>
+<p>...</p>
+<p>...</p>
 <h2>...</h2>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<h2>...</h2>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<p>...</p>
+<h2>...</h2>
+<p>...</p>
+<p>...</p>
+<p>...</p>
 <p>...</p>
 
 IDEIA OU TEXTO BASE DO POST:
@@ -139,6 +162,7 @@ TAREFA:
 - Corrigir acentos e ortografia do portugues brasileiro.
 - Remover todos os travessoes longos. O caractere "—" e proibido.
 - Manter exatamente o mesmo formato: Titulo SEO, Meta description, Categoria, Tags e Conteudo HTML.
+- Manter exatamente 4 subtitulos <h2>, com exatamente 4 paragrafos <p> em cada subtitulo.
 - Manter as mesmas ideias, fatos, titulos, tags e estrutura HTML.
 - Nao adicionar fatos novos.
 - Nao resumir.
