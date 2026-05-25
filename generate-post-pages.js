@@ -18,7 +18,7 @@ const CORE_SITEMAP_PAGES = [
     { loc: '/sobre.html', priority: '0.5' },
     { loc: '/privacidade.html', priority: '0.4' },
     { loc: '/aviso-legal.html', priority: '0.4' },
-    { loc: '/redes-sociais.html', priority: '0.4' }
+    // Redes sociais guardadas para reativar quando os perfis oficiais estiverem prontos.
 ];
 
 function escapeHTML(value) {

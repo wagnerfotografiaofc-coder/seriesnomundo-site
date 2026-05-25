@@ -13,6 +13,10 @@ applySavedTheme();
 document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
     optimizeStaticImages();
+    const quizBackButton = document.getElementById('quiz-back-button');
+    if (quizBackButton) {
+        quizBackButton.addEventListener('click', () => { history.back(); });
+    }
 
     // --- FUNÇÕES DE RENDERIZAÇÃO ---
     function slugify(value) {
@@ -221,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const videoEmbedUrl = getYouTubeEmbedUrl(post.video_url);
     const videoHtml = videoEmbedUrl ? `<div class="post-video-wrapper"><iframe src="${videoEmbedUrl}" title="Trailer oficial de ${post.title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>` : '';
-    document.getElementById('post-container').innerHTML = `<button class="card-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image" loading="eager" decoding="async" fetchpriority="high"><div class="text-page-content">${post.content}</div>${videoHtml}`;
+    document.getElementById('post-container').innerHTML = `<button class="card-button back-button" id="back-button" style="margin-bottom: 30px;">&lt; Voltar</button><h1 class="text-page-title">${post.title}</h1><img src="${imagePath}" alt="${post.title}" class="text-page-image" loading="eager" decoding="async" fetchpriority="high"><div class="text-page-content">${post.content}</div>${videoHtml}`;
     document.getElementById('back-button').addEventListener('click', () => { history.back(); });
 
     // 2. Lógica de Sugestão por Tags (a parte nova e correta)

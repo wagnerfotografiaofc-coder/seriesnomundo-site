@@ -198,6 +198,7 @@ footer {
 
 .social-button { display: inline-block; padding: 10px 20px; border-radius: 7px; color: white; text-decoration: none; font-weight: bold; transition: transform 0.2s; }
 .social-button:hover { transform: scale(1.05); }
+.footer-social { display: none; } /* Redes guardadas para reativar quando o projeto tiver perfis oficiais. */
 .instagram { background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); }
 
 #pagination-controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 40px; }
@@ -587,6 +588,18 @@ body[data-theme="light"] .drop-zone.drag-over {
     top: 0;
     color: var(--cor-destaque);
     transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.back-button {
+    padding-right: 0;
+}
+
+.back-button::after {
+    content: none;
+}
+
+.back-button::before {
+    right: 0;
 }
 
 .card-button::before {
