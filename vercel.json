@@ -4,6 +4,48 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    {
+      "source": "/home",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/filmes",
+      "destination": "/filmes.html"
+    },
+    {
+      "source": "/series",
+      "destination": "/series.html"
+    },
+    {
+      "source": "/quizzes",
+      "destination": "/quizzes.html"
+    },
+    {
+      "source": "/sobre",
+      "destination": "/sobre.html"
+    },
+    {
+      "source": "/privacidade",
+      "destination": "/privacidade.html"
+    },
+    {
+      "source": "/aviso-legal",
+      "destination": "/aviso-legal.html"
+    },
+    {
+      "source": "/redes-sociais",
+      "destination": "/redes-sociais.html"
+    },
+    {
+      "source": "/quiz/:id",
+      "destination": "/play-quiz.html?id=:id"
+    },
+    {
+      "source": "/posts/:slug",
+      "destination": "/post.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

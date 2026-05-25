@@ -12,6 +12,7 @@ applySavedTheme();
 
 document.addEventListener('DOMContentLoaded', () => {
     const pagePath = window.location.pathname.split("/").pop() || "index.html";
+    const cleanPath = window.location.pathname.replace(/\/+$/, '') || '/';
     optimizeStaticImages();
     const quizBackButton = document.getElementById('quiz-back-button');
     if (quizBackButton) {
@@ -20,21 +21,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FUNÇÕES DE RENDERIZAÇÃO ---
     function slugify(value) {
-        return String(value || '')
+        const slug = String(value || '')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            .slice(0, 90) || 'post';
+            .replace(/^-+|-+$/g, '');
+        return slug.slice(0, 90).replace(/-+$/g, '') || 'post';
     }
 
     function getPostPagePath(post) {
-        return `posts/${post.id}-${slugify(post.title)}.html`;
+        return `/posts/${slugify(post.title)}`;
     }
 
-    function getDynamicPostPath(post) {
-        return `post.html?id=${post.id}`;
+    function getQuizPagePath(quiz) {
+        return `/quiz/${quiz.id}`;
+    }
+
+    function getImagePathForPage(imagePath) {
+        if (!imagePath || /^https?:\/\//i.test(imagePath)) return imagePath;
+        return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
     }
 
     function optimizeStaticImages() {
@@ -57,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach((item, index) => {
             const isPost = type === 'post';
             const imagePath = item.image_url || (isPost ? (item.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png') : 'imagens/2.png');
-            const link = isPost ? getDynamicPostPath(item) : `play-quiz.html?id=${item.id}`;
+            const link = isPost ? getPostPagePath(item) : getQuizPagePath(item);
             const imageLoading = index < 3 ? 'eager' : 'lazy';
             const imageFetchPriority = index === 0 ? 'high' : 'auto';
             gridContainer.innerHTML += `
@@ -80,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridContainer.innerHTML = '';
         posts.forEach(post => {
             gridContainer.innerHTML += `
-                <a href="${getDynamicPostPath(post)}" class="suggestion-button">
+                <a href="${getPostPagePath(post)}" class="suggestion-button">
                     <h4>${post.title}</h4>
                     <p>${post.description}</p>
                 </a>
@@ -208,18 +214,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadSinglePostPage() {
-    const postId = new URLSearchParams(window.location.search).get('id');
-    if (!postId) { document.body.innerHTML = '<h1>Post não encontrado.</h1>'; return; }
-    
-    // 1. Busca o post principal
-    const { data: post, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
+    const params = new URLSearchParams(window.location.search);
+    const postId = params.get('id');
+    const slugFromPath = cleanPath.startsWith('/posts/') ? cleanPath.split('/').filter(Boolean).pop().replace(/\.html$/i, '') : '';
+    const legacyPostId = slugFromPath.match(/^(\d+)-/)?.[1] || '';
+    let post = null;
+    let error = null;
+
+    if (postId || legacyPostId) {
+        const result = await supabaseClient.from('posts').select('*').eq('id', postId || legacyPostId).single();
+        post = result.data;
+        error = result.error;
+    } else if (slugFromPath) {
+        const result = await supabaseClient.from('posts').select('*');
+        error = result.error;
+        post = (result.data || []).find(candidate => slugify(candidate.title) === slugFromPath);
+    }
+
+    if (!postId && !slugFromPath) { document.body.innerHTML = '<h1>Post não encontrado.</h1>'; return; }
     if (error) { document.body.innerHTML = '<h1>Erro ao carregar o post.</h1>'; return; }
-    
-    const imagePath = post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png');
+    if (!post) { document.body.innerHTML = '<h1>Post não encontrado.</h1>'; return; }
+
+    const imagePath = getImagePathForPage(post.image_url || (post.category === 'filme' ? 'imagens/1.png' : 'imagens/2.png'));
     updatePageMeta({
         title: `${post.title} | Series No Mundo`,
         description: post.description,
-        url: new URL(getPostPagePath(post), window.location.origin).href,
+        url: `${window.location.origin}${getPostPagePath(post)}`,
         image: new URL(imagePath, window.location.origin).href,
         type: 'article'
     });
@@ -265,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 }
     
     async function loadQuizPlayer() {
-        const quizId = new URLSearchParams(window.location.search).get('id');
+        const quizId = new URLSearchParams(window.location.search).get('id') || (cleanPath.startsWith('/quiz/') ? cleanPath.split('/').filter(Boolean).pop() : '');
         const container = document.getElementById('quiz-player-container');
         if (!quizId) { container.innerHTML = '<h1>Quiz não encontrado.</h1>'; return; }
         const { data: quiz, error } = await supabaseClient.from('quizzes').select('id,title,description,quiz_type,items_per_round').eq('id', quizId).single();
@@ -273,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePageMeta({
             title: `${quiz.title} | Quiz Series No Mundo`,
             description: quiz.description,
-            url: window.location.href,
+            url: quizId ? `${window.location.origin}/quiz/${quizId}` : window.location.href,
             image: `${window.location.origin}/imagens/sofa.png`
         });
         switch (quiz.quiz_type) {
@@ -402,15 +422,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- INICIALIZAÇÃO E EVENT LISTENERS GERAIS ---
-    if (pagePath.includes('index.html') || pagePath === '') { loadHomePage(); }
-    else if (pagePath.includes('filmes.html')) { loadPostsPage('filme'); }
-    else if (pagePath.includes('series.html')) { loadPostsPage('serie'); }
-    else if (pagePath.includes('post.html')) { loadSinglePostPage(); }
-    else if (pagePath.includes('quizzes.html')) { loadQuizzesPage(); }
-    else if (pagePath.includes('play-quiz.html')) { loadQuizPlayer(); }
+    const hasStaticPostContent = cleanPath.startsWith('/posts/') && !!document.querySelector('#post-container .text-page-content');
+    if (cleanPath === '/' || pagePath.includes('index.html')) { loadHomePage(); }
+    else if (cleanPath === '/filmes' || pagePath.includes('filmes.html')) { loadPostsPage('filme'); }
+    else if (cleanPath === '/series' || pagePath.includes('series.html')) { loadPostsPage('serie'); }
+    else if (pagePath.includes('post.html') || (cleanPath.startsWith('/posts/') && !hasStaticPostContent)) { loadSinglePostPage(); }
+    else if (cleanPath === '/quizzes' || pagePath.includes('quizzes.html')) { loadQuizzesPage(); }
+    else if (pagePath.includes('play-quiz.html') || cleanPath.startsWith('/quiz/')) { loadQuizPlayer(); }
     
     const searchInput = document.getElementById('search-input');
-    if (searchInput) { searchInput.addEventListener('input', () => { if (pagePath.includes('filmes.html')) loadPostsPage('filme'); if (pagePath.includes('series.html')) loadPostsPage('serie'); }); }
+    if (searchInput) { searchInput.addEventListener('input', () => { if (cleanPath === '/filmes' || pagePath.includes('filmes.html')) loadPostsPage('filme'); if (cleanPath === '/series' || pagePath.includes('series.html')) loadPostsPage('serie'); }); }
     const menuIcon = document.querySelector('.menu-icon');
     const sideMenu = document.querySelector('.side-menu');
     if (menuIcon) { menuIcon.addEventListener('click', () => sideMenu.classList.toggle('open')); }

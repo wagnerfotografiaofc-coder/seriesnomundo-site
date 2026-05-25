@@ -12,12 +12,12 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 const CORE_SITEMAP_PAGES = [
     { loc: '/', priority: '1.0' },
-    { loc: '/filmes.html', priority: '0.8' },
-    { loc: '/series.html', priority: '0.8' },
-    { loc: '/quizzes.html', priority: '0.8' },
-    { loc: '/sobre.html', priority: '0.5' },
-    { loc: '/privacidade.html', priority: '0.4' },
-    { loc: '/aviso-legal.html', priority: '0.4' },
+    { loc: '/filmes', priority: '0.8' },
+    { loc: '/series', priority: '0.8' },
+    { loc: '/quizzes', priority: '0.8' },
+    { loc: '/sobre', priority: '0.5' },
+    { loc: '/privacidade', priority: '0.4' },
+    { loc: '/aviso-legal', priority: '0.4' },
     // Redes sociais guardadas para reativar quando os perfis oficiais estiverem prontos.
 ];
 
@@ -32,17 +32,21 @@ function escapeHTML(value) {
 }
 
 function slugify(value) {
-    return String(value || '')
+    const slug = String(value || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 90) || 'post';
+        .replace(/^-+|-+$/g, '');
+    return slug.slice(0, 90).replace(/-+$/g, '') || 'post';
 }
 
 function getPostPath(post) {
-    return `posts/${post.id}-${slugify(post.title)}.html`;
+    return `posts/${slugify(post.title)}`;
+}
+
+function getPostFilePath(post) {
+    return `${getPostPath(post)}/index.html`;
 }
 
 function getPostUrl(post, prefix = '') {
@@ -61,7 +65,7 @@ function getImagePath(post, prefix = '') {
 function renderCard(item, type) {
     const isPost = type === 'post';
     const imagePath = isPost ? getImagePath(item) : (item.image_url || 'imagens/2.png');
-    const link = isPost ? getPostUrl(item) : `play-quiz.html?id=${item.id}`;
+    const link = isPost ? getPostUrl(item) : `/quiz/${item.id}`;
     const buttonText = isPost ? 'Ler Mais' : 'Jogar Agora';
 
     return `                <div class="card">
@@ -141,7 +145,7 @@ function getArticleSchema(post) {
 
 function getBreadcrumbSchema(post) {
     const categoryName = post.category === 'filme' ? 'Filmes' : 'Séries';
-    const categoryUrl = post.category === 'filme' ? `${SITE_URL}/filmes.html` : `${SITE_URL}/series.html`;
+    const categoryUrl = post.category === 'filme' ? `${SITE_URL}/filmes` : `${SITE_URL}/series`;
 
     return {
         '@context': 'https://schema.org',
@@ -304,7 +308,7 @@ function renderSuggestions(suggestions) {
     if (!suggestions.length) return '';
 
     const links = suggestions.map(post => `
-                <a href="../${getPostPath(post)}" class="suggestion-button">
+                <a href="/${getPostPath(post)}" class="suggestion-button">
                     <h4>${escapeHTML(post.title)}</h4>
                     <p>${escapeHTML(post.description)}</p>
                 </a>`).join('');
@@ -320,7 +324,7 @@ function renderSuggestions(suggestions) {
 function renderPostPage(post, suggestions) {
     const postPath = getPostPath(post);
     const canonicalUrl = `${SITE_URL}/${postPath}`;
-    const imagePath = getImagePath(post, '../');
+    const imagePath = getImagePath(post, '/');
     const imageUrl = getAbsoluteImageUrl(post);
     const videoEmbedUrl = getYouTubeEmbedUrl(post.video_url);
     const videoHtml = videoEmbedUrl ? `
@@ -346,8 +350,8 @@ function renderPostPage(post, suggestions) {
     <meta name="twitter:title" content="${escapeHTML(post.title)} | Series No Mundo">
     <meta name="twitter:description" content="${escapeHTML(post.description)}">
     <meta name="twitter:image" content="${imageUrl}">
-    <link rel="stylesheet" href="../style.css">
-    <link rel="icon" type="image/png" href="../imagens/sofa.png">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" type="image/png" href="/imagens/sofa.png">
     ${renderJsonLd(getArticleSchema(post))}
     ${renderJsonLd(getBreadcrumbSchema(post))}
 </head>
@@ -355,7 +359,7 @@ function renderPostPage(post, suggestions) {
 
     <header class="container">
         <div class="menu-icon">☰</div>
-        <div class="logo"><a href="../index.html" style="color: inherit; text-decoration: none;">SÉRIES NO MUNDO</a></div>
+        <div class="logo"><a href="/" style="color: inherit; text-decoration: none;">SÉRIES NO MUNDO</a></div>
         <div id="theme-switcher">
             <div class="theme-dot" data-theme="dark" style="background-color: #121213;"></div>
             <div class="theme-dot" data-theme="light" style="background-color: #f8f9fa;"></div>
@@ -366,17 +370,17 @@ function renderPostPage(post, suggestions) {
     <div class="side-menu">
         <nav>
             <ul>
-                <li><a href="../index.html">Início</a></li>
-                <li><a href="../filmes.html">Filmes</a></li>
-                <li><a href="../series.html">Séries</a></li>
-                <li><a href="../quizzes.html">Quizzes</a></li>
+                <li><a href="/">Início</a></li>
+                <li><a href="/filmes">Filmes</a></li>
+                <li><a href="/series">Séries</a></li>
+                <li><a href="/quizzes">Quizzes</a></li>
             </ul>
         </nav>
     </div>
 
     <main class="container">
         <article id="post-container" class="text-page">
-            <a class="card-button" href="../${post.category === 'filme' ? 'filmes.html' : 'series.html'}" style="margin-bottom: 30px;">&lt; Voltar</a>
+            <a class="card-button back-button" href="${post.category === 'filme' ? '/filmes' : '/series'}" style="margin-bottom: 30px;">&lt; Voltar</a>
             <h1 class="text-page-title">${escapeHTML(post.title)}</h1>
             <img src="${imagePath}" alt="${escapeHTML(post.title)}" class="text-page-image">
             <div class="text-page-content">${normalizePostContent(post.content)}</div>${videoHtml}
@@ -387,9 +391,9 @@ ${renderSuggestions(suggestions)}
     <footer>
         <div class="container footer-container">
             <div class="footer-links">
-                <a href="../sobre.html">Sobre Nós</a>
-                <a href="../privacidade.html">Política de Privacidade</a>
-                <a href="../aviso-legal.html">Aviso Legal</a>
+                <a href="/sobre">Sobre Nós</a>
+                <a href="/privacidade">Política de Privacidade</a>
+                <a href="/aviso-legal">Aviso Legal</a>
             </div>
             <div class="footer-social">
                 <a href="https://www.instagram.com/series_no_mundo" target="_blank" class="social-button instagram">Instagram</a>
@@ -398,7 +402,7 @@ ${renderSuggestions(suggestions)}
     </footer>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
 `;
@@ -432,7 +436,9 @@ async function main() {
     for (const post of posts) {
         const suggestions = getSuggestions(post, posts);
         const html = renderPostPage(post, suggestions);
-        fs.writeFileSync(path.join(__dirname, getPostPath(post)), html, 'utf8');
+        const outputPath = path.join(__dirname, getPostFilePath(post));
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        fs.writeFileSync(outputPath, html, 'utf8');
     }
 
     fs.writeFileSync(path.join(__dirname, 'sitemap.xml'), renderSitemap(posts), 'utf8');
