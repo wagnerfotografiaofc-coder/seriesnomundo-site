@@ -120,7 +120,6 @@ function removeLongDashes(content) {
 }
 
 function needsEditorialPolish(content) {
-    if (process.env.DEEPSEEK_POLISH !== 'true') return false;
     return content.includes('—') || COMMON_ACCENT_ISSUES.some(pattern => pattern.test(content));
 }
 
@@ -196,7 +195,7 @@ async function polishGeneratedPost({ apiKey, content, index }) {
                 }
             ],
             temperature: 0.15,
-            max_tokens: 5200
+            max_tokens: 3600
         })
     });
 
