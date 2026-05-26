@@ -42,7 +42,7 @@ Regras:
 - Nao use travessao longo. O caractere "—" e proibido.
 - Evite clickbait e superlativos vagos como "avassalador", "revolucionario", "imperdivel", "definitivo", "obra-prima" e "marco absoluto", salvo se a base pedir esse tom.
 - Nao use emoji, slug, fontes consultadas, "comente abaixo", "clique" ou "compartilhe".
-- Se falar de streaming, use: "a disponibilidade pode variar conforme a regiao e o periodo".
+- Se falar de onde assistir ou streaming, nao afirme disponibilidade exata sem base. Quando fizer sentido, use uma frase curta e natural sobre conferir o catalogo atual, variando a escrita e sem transformar isso em rodape fixo.
 - Se varios posts forem sobre o mesmo tema, mire uma intencao de busca diferente.
 
 Estrutura obrigatoria:
