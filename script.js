@@ -331,23 +331,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: questions, error } = await supabaseClient.from('questions').select('id,question_text,answers(answer_text,is_correct)').eq('quiz_id', quiz.id);
         if (error || !questions || questions.length === 0) { document.getElementById('quiz-player-container').innerHTML = '<h1>Erro ao carregar as perguntas deste quiz.</h1>'; return; }
         let currentQuestionIndex = 0; let score = 0; const container = document.getElementById('quiz-player-container');
+        const isWhoAmI = quiz.quiz_type === 'who_am_i';
         function renderQuestion() {
             const question = questions[currentQuestionIndex];
             let answersHTML = '';
             const shuffledAnswers = question.answers.sort(() => Math.random() - 0.5);
-            shuffledAnswers.forEach(answer => { answersHTML += `<button class="answer-btn" data-correct="${answer.is_correct}">${answer.answer_text}</button>`; });
-            container.innerHTML = `<div class="quiz-container-player"><p>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</p><h2 class="text-page-title">${question.question_text}</h2><div class="answer-options">${answersHTML}</div><button id="next-button" class="card-button hidden" style="margin-top: 20px;">Próxima Pergunta</button></div>`;
+            shuffledAnswers.forEach((answer, index) => {
+                if (isWhoAmI) answersHTML += `<button class="answer-btn whoami-btn" data-correct="${answer.is_correct}"><span class="whoami-letter">${String.fromCharCode(65 + index)}</span><span>${answer.answer_text}</span></button>`;
+                else answersHTML += `<button class="answer-btn" data-correct="${answer.is_correct}">${answer.answer_text}</button>`;
+            });
+            if (isWhoAmI) {
+                const progress = Math.round(((currentQuestionIndex + 1) / questions.length) * 100);
+                container.innerHTML = `<div class="quiz-container-player whoami-player"><div class="quiz-progress-wrap"><div class="quiz-progress-meta"><span>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</span><strong>${score} acertos</strong></div><div class="quiz-progress-track"><span style="width: ${progress}%"></span></div></div><p class="quiz-mode-kicker">Quem sou eu?</p><h2 class="text-page-title whoami-question">${question.question_text}</h2><div class="answer-options whoami-options">${answersHTML}</div><button id="next-button" class="card-button hidden" style="margin-top: 26px;">Próxima Pergunta</button></div>`;
+            } else {
+                container.innerHTML = `<div class="quiz-container-player"><p>Pergunta ${currentQuestionIndex + 1} de ${questions.length}</p><h2 class="text-page-title">${question.question_text}</h2><div class="answer-options">${answersHTML}</div><button id="next-button" class="card-button hidden" style="margin-top: 20px;">Próxima Pergunta</button></div>`;
+            }
             document.querySelectorAll('.answer-btn').forEach(button => button.addEventListener('click', handleAnswer));
         }
         function handleAnswer(e) {
-            const selectedButton = e.target; const isCorrect = selectedButton.dataset.correct === 'true';
+            const selectedButton = e.currentTarget; const isCorrect = selectedButton.dataset.correct === 'true';
             document.querySelectorAll('.answer-btn').forEach(btn => { btn.disabled = true; if (btn.dataset.correct === 'true') { btn.classList.add('correct'); } });
             if (!isCorrect) { selectedButton.classList.add('incorrect'); } else { score++; }
             if (currentQuestionIndex < questions.length - 1) { const nextButton = document.getElementById('next-button'); nextButton.classList.remove('hidden'); nextButton.addEventListener('click', nextStep, { once: true });
             } else { setTimeout(renderFinalResult, 1500); }
         }
         function nextStep() { currentQuestionIndex++; renderQuestion(); }
-        function renderFinalResult() { let message = ""; const percentage = (score / questions.length) * 100; if (percentage <= 30) message = "Hmm, precisa estudar mais, hein?"; else if (percentage <= 70) message = "Bom trabalho!"; else if (percentage < 100) message = "Excelente!"; else message = "PERFEITO!"; container.innerHTML = `<div class="quiz-container-player"><h2>Quiz Finalizado!</h2><p id="result-score">Você acertou ${score} de ${questions.length}!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`; container.querySelector('#restart-button').addEventListener('click', startQuiz); }
+        function renderFinalResult() { let message = ""; const percentage = (score / questions.length) * 100; if (percentage <= 30) message = "Hmm, precisa estudar mais, hein?"; else if (percentage <= 70) message = "Bom trabalho!"; else if (percentage < 100) message = "Excelente!"; else message = "PERFEITO!"; if (isWhoAmI) container.innerHTML = `<div class="quiz-container-player whoami-player quiz-mode-result"><p class="quiz-result-kicker">Quiz finalizado</p><h2>${message}</h2><p id="result-score">${score}/${questions.length}</p><p>Você acertou ${score} de ${questions.length} perguntas.</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`; else container.innerHTML = `<div class="quiz-container-player"><h2>Quiz Finalizado!</h2><p id="result-score">Você acertou ${score} de ${questions.length}!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`; container.querySelector('#restart-button').addEventListener('click', startQuiz); }
         function startQuiz() { currentQuestionIndex = 0; score = 0; renderQuestion(); }
         startQuiz();
     }
@@ -412,7 +421,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const shuffledTraits = [...items].sort(() => Math.random() - 0.5);
             let charactersHTML = items.map(item => `<button type="button" id="char-${item.id}" class="draggable-item" draggable="true" data-item-id="${item.id}">${item.char}</button>`).join('');
             let traitsHTML = shuffledTraits.map(item => `<button type="button" class="drop-zone" data-correct-id="${item.id}"><span class="trait-text">${item.trait}</span></button>`).join('');
-            container.innerHTML = `<div class="quiz-container-player association-player"><h2 class="text-page-title">${quiz.title} (Fase ${roundNum}/${totalRounds})</h2><div class="association-game-area"><div class="draggable-column">${charactersHTML}</div><div class="droppable-column">${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
+            const progress = Math.round((roundNum / totalRounds) * 100);
+            container.innerHTML = `<div class="quiz-container-player association-player"><div class="quiz-progress-wrap"><div class="quiz-progress-meta"><span>Fase ${roundNum} de ${totalRounds}</span><strong>${totalScore} acertos</strong></div><div class="quiz-progress-track"><span style="width: ${progress}%"></span></div></div><h2 class="text-page-title association-title">${quiz.title}</h2><div class="association-game-area"><div class="association-column draggable-column"><p class="association-column-label">Itens</p>${charactersHTML}</div><div class="association-column droppable-column"><p class="association-column-label">Combinações</p>${traitsHTML}</div></div><p id="round-score"></p><button id="action-button" class="card-button hidden" style="margin-top: 30px;">Verificar Respostas</button></div>`;
             addDragDropListeners(items.length);
         }
         function addDragDropListeners(questionsInRound) {
@@ -471,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         function renderFinalResult() {
             const totalPossible = questions.length; let message = (totalScore / totalPossible) * 100 < 70 ? "Foi quase! Tente de novo." : "Excelente!";
-            container.innerHTML = `<div class="quiz-container-player"><h2>Jogo Finalizado!</h2><p id="result-score">Você acertou ${totalScore} de ${totalPossible} no total!</p><p>${message}</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`;
+            container.innerHTML = `<div class="quiz-container-player association-player quiz-mode-result"><p class="quiz-result-kicker">Jogo finalizado</p><h2>${message}</h2><p id="result-score">${totalScore}/${totalPossible}</p><p>Você acertou ${totalScore} de ${totalPossible} no total.</p><button class="card-button" id="restart-button" style="margin-top: 30px;">Jogar Novamente</button></div>`;
             container.querySelector('#restart-button').addEventListener('click', startGame);
         }
         function startGame() { currentRound = 1; totalScore = 0; renderRound(currentRound); }
