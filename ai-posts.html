@@ -26,7 +26,7 @@
         .status { min-height: 24px; font-weight: bold; }
         .status.error { color: #ff8787; }
         .status.success { color: #69db7c; }
-        .queue-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
+        .queue-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
         .summary-card { background: #1f1f20; border: 1px solid #3a3a3c; border-radius: 6px; padding: 12px; }
         .summary-card strong { display: block; color: #fff; font-size: 1.5em; }
         .queue-list { display: grid; gap: 14px; margin-top: 18px; }
@@ -122,6 +122,7 @@ Texto base 3 aqui..."></textarea>
                 <div class="summary-card"><span>Gerando</span><strong id="generating-count">0</strong></div>
                 <div class="summary-card"><span>Prontos</span><strong id="done-count">0</strong></div>
                 <div class="summary-card"><span>Erros</span><strong id="error-count">0</strong></div>
+                <div class="summary-card"><span>Custo estimado</span><strong id="cost-total">US$ 0.0000</strong></div>
             </div>
 
             <div id="queue-list" class="queue-list"></div>

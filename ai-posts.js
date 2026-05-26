@@ -6,6 +6,8 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY = 'seriesnomundo_ai_post_queue_v1';
     const MAX_QUEUE_ITEMS = 50;
+    const INPUT_PRICE_PER_MILLION = 0.435;
+    const OUTPUT_PRICE_PER_MILLION = 0.87;
     const STATUS_LABELS = {
         pending: 'Pendente',
         generating: 'Gerando',
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatingCount = document.getElementById('generating-count');
     const doneCount = document.getElementById('done-count');
     const errorCount = document.getElementById('error-count');
+    const costTotal = document.getElementById('cost-total');
 
     let queue = loadQueue();
     let isGenerating = false;
@@ -133,12 +136,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { pending: 0, generating: 0, done: 0, error: 0 });
     }
 
+    function calculateUsageCost(usage) {
+        const inputTokens = Number(usage?.prompt_tokens || 0);
+        const outputTokens = Number(usage?.completion_tokens || 0);
+        return ((inputTokens * INPUT_PRICE_PER_MILLION) + (outputTokens * OUTPUT_PRICE_PER_MILLION)) / 1000000;
+    }
+
+    function formatUsd(value) {
+        return `US$ ${Number(value || 0).toFixed(4)}`;
+    }
+
+    function getQueueCost() {
+        return queue.reduce((total, item) => total + calculateUsageCost(item.debug?.usage), 0);
+    }
+
     function renderQueue() {
         const counts = getCounts();
         pendingCount.innerText = counts.pending || 0;
         generatingCount.innerText = counts.generating || 0;
         doneCount.innerText = counts.done || 0;
         errorCount.innerText = counts.error || 0;
+        costTotal.innerText = formatUsd(getQueueCost());
         generateBtn.disabled = isGenerating || queue.length === 0 || (counts.pending || 0) === 0;
         pauseBtn.disabled = !isGenerating;
         copyAllBtn.disabled = (counts.done || 0) === 0;
@@ -156,7 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 : '';
             const errorHtml = item.error ? `<p class="status error">${escapeHTML(item.error)}</p>` : '';
             const usage = item.debug?.usage;
-            const debugHtml = usage?.total_tokens ? `<div class="queue-meta">Tokens: ${usage.total_tokens} total (${usage.prompt_tokens} entrada + ${usage.completion_tokens} saida) | Revisao extra: ${item.debug.polished ? 'sim' : 'nao'} | Tempo: ${item.debug.seconds || 0}s</div>` : '';
+            const estimatedCost = calculateUsageCost(usage);
+            const debugHtml = usage?.total_tokens ? `<div class="queue-meta">Tokens: ${usage.total_tokens} total (${usage.prompt_tokens} entrada + ${usage.completion_tokens} saida) | Custo estimado: ${formatUsd(estimatedCost)} | Revisao extra: ${item.debug.polished ? 'sim' : 'nao'} | Tempo: ${item.debug.seconds || 0}s</div>` : '';
             const retryButton = status === 'error' ? `<button type="button" class="form-cancel-btn" data-action="retry" data-id="${item.id}">Tentar de novo</button>` : '';
             const copyButton = item.result ? `<button type="button" class="copy-btn" data-action="copy" data-id="${item.id}">Copiar post</button>` : '';
 
@@ -270,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const startedAt = Date.now();
         let generated = 0;
         let failed = 0;
+        let batchCost = 0;
 
         for (const item of pendingItems) {
             if (shouldPause) break;
@@ -281,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const generatedPost = await requestGeneratedPost({ briefing: item.briefing, accessToken, index: itemIndex });
                 generated += 1;
+                batchCost += calculateUsageCost(generatedPost.debug?.usage);
                 updateItem(item.id, { status: 'done', result: generatedPost.content, error: '', debug: generatedPost.debug });
             } catch (error) {
                 failed += 1;
@@ -295,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const seconds = Math.round((Date.now() - startedAt) / 1000);
         if (failed) {
-            setStatus(`${generated} pronto${generated === 1 ? '' : 's'}, ${failed} com erro, em ${seconds}s.`, 'error');
+            setStatus(`${generated} pronto${generated === 1 ? '' : 's'}, ${failed} com erro, em ${seconds}s. Custo da rodada: ${formatUsd(batchCost)}.`, 'error');
         } else if (generated) {
-            setStatus(`${generated} post${generated === 1 ? '' : 's'} gerado${generated === 1 ? '' : 's'} em ${seconds}s.`, 'success');
+            setStatus(`${generated} post${generated === 1 ? '' : 's'} gerado${generated === 1 ? '' : 's'} em ${seconds}s. Custo da rodada: ${formatUsd(batchCost)}.`, 'success');
         } else {
             setStatus('Fila pausada.', '');
         }
