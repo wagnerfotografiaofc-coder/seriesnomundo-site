@@ -413,6 +413,367 @@ document.addEventListener('DOMContentLoaded', () => {
         parsedBulkQuiz = null;
     }
 
+    function cleanQuizAnswerLineV2(value) {
+        return String(value || '').replace(/[✅❌✔✘]/g, '').trim();
+    }
+
+    function getQuizTypeLabelV2(type) {
+        return ({
+            true_false: 'Verdadeiro/Falso',
+            who_am_i: 'Quem Sou Eu',
+            trivia: 'Trivia',
+            association: 'Associacao'
+        })[type] || type;
+    }
+
+    function normalizeQuizTypeV2(value) {
+        const normalized = normalizeText(value || '').replace(/[_-]/g, ' ').trim();
+        if (['verdadeiro falso', 'verdadeiro ou falso', 'true false', 'truefalse'].includes(normalized)) return 'true_false';
+        if (['quem sou eu', 'who am i', 'whos who'].includes(normalized)) return 'who_am_i';
+        if (['trivia', 'conhecimento', 'multipla escolha', 'multiple choice'].includes(normalized)) return 'trivia';
+        if (['associacao', 'association', 'associar', 'pares'].includes(normalized)) return 'association';
+        return '';
+    }
+
+    function splitBulkQuizBlocksV2(rawText) {
+        return String(rawText || '')
+            .split(/\n\s*---+\s*\n/g)
+            .map(block => block.trim())
+            .filter(Boolean);
+    }
+
+    function readLabeledQuizBlockV2(block) {
+        const lines = String(block || '').split(/\r?\n/);
+        const fieldMap = {
+            title: ['titulo', 'titulo seo', 'título', 'título seo'],
+            description: ['descricao', 'descrição', 'description', 'meta description'],
+            type: ['tipo', 'modelo', 'tipo de quiz'],
+            featured: ['destaque', 'home'],
+            items_per_round: ['pares por rodada', 'itens por rodada', 'items per round']
+        };
+        const data = { title: '', description: '', type: '', featured: '', items_per_round: '', bodyLines: [] };
+        let currentField = '';
+        let bodyStarted = false;
+
+        lines.forEach(rawLine => {
+            const line = rawLine.trim();
+            const labelMatch = line.match(/^([^:]+):\s*(.*)$/);
+            if (labelMatch) {
+                const normalizedLabel = normalizeText(labelMatch[1]);
+                const fieldKey = Object.keys(fieldMap).find(key => fieldMap[key].some(label => normalizeText(label) === normalizedLabel));
+                if (fieldKey) {
+                    currentField = fieldKey;
+                    bodyStarted = false;
+                    if (labelMatch[2]) data[fieldKey] = labelMatch[2].trim();
+                    return;
+                }
+                if (['perguntas', 'conteudo', 'conteúdo'].includes(normalizedLabel)) {
+                    currentField = '';
+                    bodyStarted = true;
+                    if (labelMatch[2]) data.bodyLines.push(labelMatch[2].trim());
+                    return;
+                }
+            }
+
+            if (bodyStarted || !currentField) {
+                data.bodyLines.push(rawLine);
+            } else if (line) {
+                data[currentField] = data[currentField] ? `${data[currentField]}\n${line}` : line;
+            }
+        });
+
+        if (!data.title) {
+            const firstContentLine = lines.map(line => line.trim()).find(line => line && !/^\d+[\.)]?$/.test(line));
+            data.title = firstContentLine || '';
+            const firstLineIndex = lines.findIndex(line => line.trim() === firstContentLine);
+            data.bodyLines = firstLineIndex >= 0 ? lines.slice(firstLineIndex + 1) : [];
+        }
+
+        return data;
+    }
+
+    function splitQuizQuestionBlocksV2(lines) {
+        const blocks = [];
+        let current = [];
+
+        lines.map(line => line.trim()).forEach(line => {
+            if (!line) return;
+            const numberOnly = line.match(/^\d+[\.)]?$/);
+            const numberWithText = line.match(/^\d+[\.)]\s+(.+)$/);
+            if (numberOnly || numberWithText) {
+                if (current.length) blocks.push(current);
+                current = [];
+                if (numberWithText) current.push(numberWithText[1].trim());
+                return;
+            }
+            current.push(line);
+        });
+
+        if (current.length) blocks.push(current);
+        return blocks;
+    }
+
+    function parseTrueFalseQuestionsV2(lines) {
+        return splitQuizQuestionBlocksV2(lines).map(block => {
+            const answerIndex = block.findIndex(line => ['verdadeiro', 'true', 'falso', 'false'].includes(normalizeText(cleanQuizAnswerLineV2(line))));
+            const answerLine = answerIndex >= 0 ? normalizeText(cleanQuizAnswerLineV2(block[answerIndex])) : '';
+            const questionLines = answerIndex >= 0 ? block.slice(0, answerIndex) : block;
+            const explanation = answerIndex >= 0 ? block.slice(answerIndex + 1) : [];
+            return {
+                question_text: questionLines.join(' ').trim(),
+                is_true: ['verdadeiro', 'true'].includes(answerLine) ? true : ['falso', 'false'].includes(answerLine) ? false : null,
+                explanation,
+                answers: []
+            };
+        });
+    }
+
+    function parseChoiceQuestionsV2(lines) {
+        return splitQuizQuestionBlocksV2(lines).map(block => {
+            const answers = [];
+            let correctValue = '';
+            const questionLines = [];
+
+            block.forEach(line => {
+                const answerMatch = line.match(/^([A-Da-d]|[1-4])[\)\.\:-]\s*(.+)$/);
+                const correctMatch = line.match(/^resposta\s*:\s*(.+)$/i);
+                if (answerMatch) {
+                    answers.push({ key: answerMatch[1].toUpperCase(), answer_text: answerMatch[2].trim(), is_correct: false });
+                } else if (correctMatch) {
+                    correctValue = correctMatch[1].trim();
+                } else if (!answers.length) {
+                    questionLines.push(line);
+                }
+            });
+
+            const normalizedCorrect = normalizeText(correctValue);
+            answers.forEach((answer, index) => {
+                const answerNumber = String(index + 1);
+                answer.is_correct = normalizeText(answer.key) === normalizedCorrect
+                    || answerNumber === normalizedCorrect
+                    || normalizeText(answer.answer_text) === normalizedCorrect;
+            });
+
+            return { question_text: questionLines.join(' ').trim(), answers };
+        });
+    }
+
+    function parseAssociationQuestionsV2(lines) {
+        return splitQuizQuestionBlocksV2(lines).map(block => {
+            const joined = block.join(' ');
+            const pairMatch = joined.match(/^(.+?)\s*(?:=>|->|=)\s*(.+)$/);
+            if (pairMatch) return { question_text: pairMatch[1].trim(), answers: [{ answer_text: pairMatch[2].trim(), is_correct: true }] };
+
+            const itemLine = block.find(line => /^(item|personagem|frase)\s*:/i.test(line));
+            const pairLine = block.find(line => /^(par|resposta|combina|serie|série)\s*:/i.test(line));
+            return {
+                question_text: itemLine ? itemLine.replace(/^[^:]+:\s*/i, '').trim() : (block[0] || ''),
+                answers: [{ answer_text: pairLine ? pairLine.replace(/^[^:]+:\s*/i, '').trim() : (block[1] || ''), is_correct: true }]
+            };
+        });
+    }
+
+    function validateBulkQuizV2(quiz, index) {
+        const errors = [];
+        const prefix = `quiz ${index + 1}`;
+        if (!quiz.title) errors.push(`${prefix} sem titulo`);
+        if (!quiz.quiz_type) errors.push(`${prefix} sem tipo`);
+        if (!quiz.questions.length) errors.push(`${prefix} sem perguntas`);
+
+        quiz.questions.forEach((question, questionIndex) => {
+            const label = `${prefix}, pergunta ${questionIndex + 1}`;
+            if (!question.question_text) errors.push(`${label} sem texto`);
+            if (quiz.quiz_type === 'true_false' && question.is_true === null) errors.push(`${label} sem resposta`);
+            if (['who_am_i', 'trivia'].includes(quiz.quiz_type)) {
+                if (!question.answers || question.answers.length < 2) errors.push(`${label} com poucas alternativas`);
+                if (!question.answers?.some(answer => answer.is_correct)) errors.push(`${label} sem alternativa correta`);
+            }
+            if (quiz.quiz_type === 'association' && !question.answers?.[0]?.answer_text) errors.push(`${label} sem par`);
+        });
+
+        return errors;
+    }
+
+    function parseBulkQuizzesV2(rawText) {
+        return splitBulkQuizBlocksV2(rawText).map((block, index) => {
+            const parsed = readLabeledQuizBlockV2(block);
+            let quizType = normalizeQuizTypeV2(parsed.type);
+            if (!quizType && /verdadeiro\s+ou\s+falso/i.test(parsed.title)) quizType = 'true_false';
+
+            let questions = [];
+            if (quizType === 'true_false') questions = parseTrueFalseQuestionsV2(parsed.bodyLines);
+            if (['who_am_i', 'trivia'].includes(quizType)) questions = parseChoiceQuestionsV2(parsed.bodyLines);
+            if (quizType === 'association') questions = parseAssociationQuestionsV2(parsed.bodyLines);
+
+            const quiz = {
+                title: parsed.title.trim(),
+                description: (parsed.description || `Quiz sobre ${parsed.title.trim()}.`).trim(),
+                quiz_type: quizType,
+                is_featured: parsed.featured ? ['sim', 's', 'true', '1'].includes(normalizeText(parsed.featured)) : bulkQuizIsFeatured.checked,
+                items_per_round: quizType === 'association' ? Math.max(1, parseInt(parsed.items_per_round, 10) || 6) : null,
+                questions
+            };
+
+            return { data: quiz, errors: validateBulkQuizV2(quiz, index) };
+        });
+    }
+
+    function renderBulkQuizPreviewV2(results) {
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizStatus.className = '';
+        bulkQuizImportBtn.disabled = true;
+
+        if (!results || !results.length) {
+            bulkQuizStatus.className = 'bulk-error';
+            bulkQuizStatus.innerText = 'Nenhum quiz encontrado.';
+            return;
+        }
+
+        const errors = results.flatMap(result => result.errors);
+        const validCount = results.filter(result => !result.errors.length).length;
+        bulkQuizStatus.className = errors.length ? 'bulk-error' : 'bulk-success';
+        bulkQuizStatus.innerText = errors.length
+            ? `Ajuste antes de importar: ${errors.join(', ')}.`
+            : `${validCount} quiz(es) prontos para importar.`;
+
+        results.forEach((result, quizIndex) => {
+            const { data, errors: itemErrors } = result;
+            const header = document.createElement('div');
+            header.className = 'bulk-preview-item';
+            header.innerHTML = `
+                <strong>${quizIndex + 1}. ${escapeHTML(data.title || 'Sem titulo')}</strong>
+                <div class="bulk-preview-meta">Tipo: ${escapeHTML(getQuizTypeLabelV2(data.quiz_type))} | Destaque: ${data.is_featured ? 'sim' : 'nao'} | Perguntas: ${data.questions.length}${data.items_per_round ? ` | Pares por rodada: ${data.items_per_round}` : ''}</div>
+                <div class="bulk-preview-meta">${escapeHTML(data.description || 'Sem descricao')}</div>
+                ${itemErrors.length ? `<div class="bulk-error">Ajustar: ${escapeHTML(itemErrors.join(', '))}</div>` : ''}
+            `;
+            bulkQuizPreview.appendChild(header);
+
+            data.questions.slice(0, 5).forEach((question, index) => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'bulk-preview-item';
+                const answerPreview = data.quiz_type === 'true_false'
+                    ? (question.is_true === true ? 'Verdadeiro' : question.is_true === false ? 'Falso' : 'sem resposta')
+                    : data.quiz_type === 'association'
+                        ? (question.answers?.[0]?.answer_text || 'sem par')
+                        : (question.answers || []).map(answer => `${answer.is_correct ? '✓ ' : ''}${answer.answer_text}`).join(' | ');
+                previewItem.innerHTML = `
+                    <strong>${index + 1}. ${escapeHTML(question.question_text || 'Sem texto')}</strong>
+                    <div class="bulk-preview-meta">${escapeHTML(answerPreview)}</div>
+                `;
+                bulkQuizPreview.appendChild(previewItem);
+            });
+
+            if (data.questions.length > 5) {
+                const moreItem = document.createElement('div');
+                moreItem.className = 'bulk-preview-meta';
+                moreItem.innerText = `+ ${data.questions.length - 5} pergunta(s) neste quiz`;
+                bulkQuizPreview.appendChild(moreItem);
+            }
+        });
+
+        if (!errors.length) bulkQuizImportBtn.disabled = false;
+    }
+
+    function handleBulkQuizPreviewV2() {
+        parsedBulkQuiz = parseBulkQuizzesV2(bulkQuizInput.value);
+        renderBulkQuizPreviewV2(parsedBulkQuiz);
+    }
+
+    async function handleBulkQuizImportV2() {
+        if (!parsedBulkQuiz || !parsedBulkQuiz.length || parsedBulkQuiz.some(result => result.errors.length)) {
+            alert('Pre-visualize quizzes validos antes de importar.');
+            return;
+        }
+        const quizzes = parsedBulkQuiz.map(result => result.data);
+        if (!confirm(`Importar ${quizzes.length} quiz(es)?`)) return;
+
+        bulkQuizImportBtn.disabled = true;
+        bulkQuizStatus.className = '';
+        bulkQuizStatus.innerText = 'Importando quizzes...';
+
+        for (let index = 0; index < quizzes.length; index++) {
+            const data = quizzes[index];
+            const quizPayload = {
+                title: data.title,
+                description: data.description,
+                quiz_type: data.quiz_type,
+                is_featured: data.is_featured
+            };
+            if (data.quiz_type === 'association') quizPayload.items_per_round = data.items_per_round;
+
+            const { data: createdQuiz, error: quizError } = await supabaseClient.from('quizzes').insert(quizPayload).select().single();
+            if (quizError) {
+                bulkQuizStatus.className = 'bulk-error';
+                bulkQuizStatus.innerText = `Erro ao criar o quiz ${index + 1}: ${quizError.message}`;
+                bulkQuizImportBtn.disabled = false;
+                return;
+            }
+
+            if (data.quiz_type === 'true_false') {
+                const questionPayload = data.questions.map(question => ({
+                    quiz_id: createdQuiz.id,
+                    question_text: question.explanation?.length ? `${question.question_text}\n${question.explanation.join(' ')}` : question.question_text,
+                    is_true: question.is_true
+                }));
+                const { error: questionsError } = await supabaseClient.from('questions').insert(questionPayload);
+                if (questionsError) {
+                    bulkQuizStatus.className = 'bulk-error';
+                    bulkQuizStatus.innerText = `Quiz criado, mas houve erro nas perguntas do quiz ${index + 1}: ${questionsError.message}`;
+                    bulkQuizImportBtn.disabled = false;
+                    return;
+                }
+            } else {
+                const questionPayload = data.questions.map(question => ({ quiz_id: createdQuiz.id, question_text: question.question_text }));
+                const { data: createdQuestions, error: questionsError } = await supabaseClient.from('questions').insert(questionPayload).select();
+                if (questionsError) {
+                    bulkQuizStatus.className = 'bulk-error';
+                    bulkQuizStatus.innerText = `Quiz criado, mas houve erro nas perguntas do quiz ${index + 1}: ${questionsError.message}`;
+                    bulkQuizImportBtn.disabled = false;
+                    return;
+                }
+
+                const answersPayload = [];
+                data.questions.forEach((question, questionIndex) => {
+                    (question.answers || []).forEach(answer => {
+                        answersPayload.push({
+                            question_id: createdQuestions[questionIndex].id,
+                            answer_text: answer.answer_text,
+                            is_correct: !!answer.is_correct
+                        });
+                    });
+                });
+
+                if (answersPayload.length) {
+                    const { error: answersError } = await supabaseClient.from('answers').insert(answersPayload);
+                    if (answersError) {
+                        bulkQuizStatus.className = 'bulk-error';
+                        bulkQuizStatus.innerText = `Quiz criado, mas houve erro nas respostas do quiz ${index + 1}: ${answersError.message}`;
+                        bulkQuizImportBtn.disabled = false;
+                        return;
+                    }
+                }
+            }
+        }
+
+        bulkQuizStatus.className = 'bulk-success';
+        bulkQuizStatus.innerText = `${quizzes.length} quiz(es) importado(s) com sucesso.`;
+        bulkQuizInput.value = '';
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizIsFeatured.checked = false;
+        parsedBulkQuiz = null;
+        await getQuizzes();
+    }
+
+    function clearBulkQuizImportV2() {
+        bulkQuizInput.value = '';
+        bulkQuizPreview.innerHTML = '';
+        bulkQuizStatus.innerText = '';
+        bulkQuizStatus.className = '';
+        bulkQuizIsFeatured.checked = false;
+        bulkQuizImportBtn.disabled = true;
+        parsedBulkQuiz = null;
+    }
+
     async function loadAdminData() {
         await getPosts();
         await getQuizzes();
@@ -812,9 +1173,9 @@ document.addEventListener('DOMContentLoaded', () => {
     quizTypeSelect.addEventListener('change', () => handleQuizTypeChange(false));
     quizFormCancelBtn.addEventListener('click', hideQuizForm);
     quizForm.addEventListener('submit', handleQuizFormSubmit);
-    bulkQuizPreviewBtn.addEventListener('click', handleBulkQuizPreview);
-    bulkQuizImportBtn.addEventListener('click', handleBulkQuizImport);
-    bulkQuizClearBtn.addEventListener('click', clearBulkQuizImport);
+    bulkQuizPreviewBtn.addEventListener('click', handleBulkQuizPreviewV2);
+    bulkQuizImportBtn.addEventListener('click', handleBulkQuizImportV2);
+    bulkQuizClearBtn.addEventListener('click', clearBulkQuizImportV2);
     bulkQuizInput.addEventListener('input', () => {
         bulkQuizImportBtn.disabled = true;
         parsedBulkQuiz = null;

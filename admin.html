@@ -130,9 +130,15 @@ Conteudo HTML:
         <div class="form-actions"><button type="button" class="form-cancel-btn" id="quiz-form-cancel-btn">Cancelar</button><button type="submit" class="form-submit-btn">Salvar Quiz</button></div>
     </form>
     <section id="bulk-quiz-import-section" class="form-container">
-        <h2>Importar Quiz Verdadeiro/Falso</h2>
-        <label for="bulk-quiz-input">Cole o quiz no formato numerado:</label>
-        <textarea id="bulk-quiz-input" rows="14" placeholder="Verdadeiro ou Falso - Modern Family
+        <h2>Importar Quizzes em Massa</h2>
+        <label for="bulk-quiz-input">Cole um ou varios quizzes. Separe quizzes diferentes com ---</label>
+        <textarea id="bulk-quiz-input" rows="16" placeholder="Titulo:
+Verdadeiro ou Falso - Modern Family
+Tipo:
+verdadeiro_falso
+Descricao:
+Teste seus conhecimentos sobre Modern Family.
+
 1.
 Phil Dunphy trabalha como corretor de imoveis na serie.
 Verdadeiro
@@ -140,12 +146,45 @@ Verdadeiro
 2.
 Manny e filho biologico de Jay Pritchett.
 Falso
-Manny e filho de Gloria com o ex-marido Javier Delgado."></textarea>
+Manny e filho de Gloria com o ex-marido Javier Delgado.
+
+---
+
+Titulo:
+Quem Sou Eu - The Office
+Tipo:
+quem_sou_eu
+Descricao:
+Descubra qual personagem esta sendo descrito.
+
+1.
+Sou vendedor, amo pegadinhas e sou apaixonado pela recepcionista.
+A) Michael Scott
+B) Jim Halpert
+C) Dwight Schrute
+D) Stanley Hudson
+Resposta: B
+
+---
+
+Titulo:
+Associe personagens e series
+Tipo:
+associacao
+Pares por rodada:
+6
+Descricao:
+Ligue cada personagem a serie correta.
+
+1.
+Michael Scott => The Office
+2.
+Gloria Pritchett => Modern Family"></textarea>
         <div style="margin-top: 15px;"><input type="checkbox" id="bulk-quiz-is-featured" style="width: auto; margin-right: 5px;"><label for="bulk-quiz-is-featured" style="display: inline;">Destaque na Home?</label></div>
         <div class="form-actions">
             <button type="button" class="form-cancel-btn" id="bulk-quiz-clear-btn">Limpar</button>
             <button type="button" class="form-submit-btn" id="bulk-quiz-preview-btn">Pre-visualizar</button>
-            <button type="button" class="form-submit-btn" id="bulk-quiz-import-btn" disabled>Importar Quiz</button>
+            <button type="button" class="form-submit-btn" id="bulk-quiz-import-btn" disabled>Importar Quizzes</button>
         </div>
         <p id="bulk-quiz-status"></p>
         <div id="bulk-quiz-preview" class="bulk-preview"></div>
