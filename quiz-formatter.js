@@ -151,12 +151,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (field) {
                     currentField = field;
                     bodyStarted = false;
-                    if (labeled.value) fields[field] = labeled.value;
+                    if (labeled.value) {
+                        fields[field] = labeled.value;
+                        currentField = '';
+                    }
                     return;
                 }
             }
 
-            if (bodyStarted || !currentField) {
+            if (currentField && isQuestionStart(line)) {
+                bodyStarted = true;
+                currentField = '';
+                fields.body.push(rawLine);
+            } else if (bodyStarted || !currentField) {
                 fields.body.push(rawLine);
             } else if (line) {
                 fields[currentField] = fields[currentField] ? `${fields[currentField]}\n${line}` : line;
