@@ -15,6 +15,17 @@
   },
   "redirects": [
     {
+      "source": "/",
+      "destination": "/psilu-admin/",
+      "permanent": false,
+      "has": [
+        {
+          "type": "host",
+          "value": "adminpsilu.seriesnomundo.site"
+        }
+      ]
+    },
+    {
       "source": "/home",
       "destination": "/",
       "permanent": true
