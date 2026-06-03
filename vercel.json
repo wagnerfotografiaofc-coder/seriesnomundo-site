@@ -2,6 +2,15 @@
   "functions": {
     "api/generate-posts.js": {
       "maxDuration": 300
+    },
+    "api/psilu-ai.js": {
+      "maxDuration": 60
+    },
+    "api/psilu-context.js": {
+      "maxDuration": 30
+    },
+    "api/psilu-cleanup.js": {
+      "maxDuration": 30
     }
   },
   "redirects": [
@@ -47,6 +56,36 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "adminpsilu.seriesnomundo.site"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "destination": "/psilu-admin/index.html",
+      "has": [
+        {
+          "type": "host",
+          "value": "adminpsilu.seriesnomundo.site"
+        }
+      ]
+    },
+    {
+      "source": "/:path*",
+      "destination": "/psilu-admin/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "adminpsilu.seriesnomundo.site"
+        }
+      ]
+    },
     {
       "source": "/home",
       "destination": "/index.html"

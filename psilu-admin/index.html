@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin Psilu</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <main class="login-shell" id="login-shell">
+        <section class="login-panel">
+            <p class="eyebrow">Psilu Command Center</p>
+            <h1>Entrar no painel</h1>
+            <form id="login-form">
+                <label for="login-email">E-mail</label>
+                <input id="login-email" type="email" autocomplete="username" required>
+                <label for="login-password">Senha</label>
+                <input id="login-password" type="password" autocomplete="current-password" required>
+                <p class="form-message" id="login-message"></p>
+                <button type="submit">Entrar</button>
+            </form>
+        </section>
+    </main>
+
+    <main class="app-shell hidden" id="app-shell">
+        <section class="workspace">
+            <header class="top-strip">
+                <div>
+                    <p class="eyebrow" id="date-label"></p>
+                    <h1 id="page-title">Bom dia, Bruno</h1>
+                    <p class="daily-phrase" id="daily-phrase"></p>
+                </div>
+                <div class="top-actions">
+                    <span id="auth-status"></span>
+                    <button type="button" class="ghost-btn" id="logout-btn">Sair</button>
+                </div>
+            </header>
+
+            <section class="view active" data-view="home">
+                <div class="home-grid">
+                    <article class="panel hero-panel">
+                        <p class="eyebrow">Próximas tarefas</p>
+                        <h2>Seu foco agora</h2>
+                        <div class="task-preview-list" id="home-task-list"></div>
+                    </article>
+                    <article class="panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">Agenda</p>
+                                <h2>Hoje e próximos dias</h2>
+                            </div>
+                        </div>
+                        <div class="compact-list" id="home-calendar-list"></div>
+                    </article>
+                    <article class="panel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">Editorial</p>
+                                <h2>Conteúdo em movimento</h2>
+                            </div>
+                        </div>
+                        <div class="compact-list" id="home-editorial-list"></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="view" data-view="tasks">
+                <div class="section-toolbar">
+                    <div>
+                        <p class="eyebrow">Tarefas</p>
+                        <h2>Kanban simples</h2>
+                    </div>
+                    <button type="button" class="primary-btn" data-open-modal="task">Nova tarefa</button>
+                </div>
+                <div class="kanban" id="tasks-kanban"></div>
+            </section>
+
+            <section class="view" data-view="calendar">
+                <div class="section-toolbar">
+                    <div>
+                        <p class="eyebrow">Calendário</p>
+                        <h2>Operação</h2>
+                    </div>
+                    <button type="button" class="primary-btn" data-open-modal="event">Novo evento</button>
+                </div>
+                <div class="calendar-board" id="calendar-board"></div>
+            </section>
+
+            <section class="view" data-view="editorial">
+                <div class="section-toolbar">
+                    <div>
+                        <p class="eyebrow">Calendário editorial</p>
+                        <h2>Conteúdo e canais</h2>
+                    </div>
+                    <button type="button" class="primary-btn" data-open-modal="editorial">Novo item</button>
+                </div>
+                <div class="table-list" id="editorial-list"></div>
+            </section>
+
+            <section class="view" data-view="docs">
+                <div class="section-toolbar">
+                    <div>
+                        <p class="eyebrow">Documentos</p>
+                        <h2>Memória da empresa</h2>
+                    </div>
+                    <button type="button" class="primary-btn" data-open-modal="doc">Novo doc</button>
+                </div>
+                <div class="cards-grid" id="docs-grid"></div>
+            </section>
+
+            <section class="view" data-view="strategies">
+                <div class="section-toolbar">
+                    <div>
+                        <p class="eyebrow">Estratégias</p>
+                        <h2>Ideias, testes e aprendizados</h2>
+                    </div>
+                    <button type="button" class="primary-btn" data-open-modal="strategy">Nova estratégia</button>
+                </div>
+                <div class="cards-grid" id="strategies-grid"></div>
+            </section>
+
+            <nav class="bottom-nav">
+                <button type="button" class="active" data-nav="home">Home</button>
+                <button type="button" data-nav="tasks">Tarefas</button>
+                <button type="button" data-nav="calendar">Calendário</button>
+                <button type="button" data-nav="editorial">Editorial</button>
+                <button type="button" data-nav="docs">Docs</button>
+                <button type="button" data-nav="strategies">Estratégias</button>
+            </nav>
+        </section>
+
+        <aside class="ai-panel">
+            <header class="ai-header">
+                <div>
+                    <p class="eyebrow">Assistente Psilu</p>
+                    <h2>IA sempre aberta</h2>
+                </div>
+                <button type="button" class="ghost-btn" id="new-chat-btn">Novo chat</button>
+            </header>
+
+            <div class="ai-controls">
+                <label for="model-select">Modelo</label>
+                <select id="model-select"></select>
+                <div class="context-actions">
+                    <button type="button" data-context="today">Anexar hoje</button>
+                    <button type="button" data-context="tasks">Tarefas</button>
+                    <button type="button" data-context="calendar">Calendário</button>
+                    <button type="button" data-context="editorial">Editorial</button>
+                    <button type="button" data-context="docs">Docs</button>
+                    <button type="button" data-context="strategies">Estratégias</button>
+                </div>
+                <button type="button" class="briefing-btn" id="briefing-btn">Preparar briefing CMO</button>
+                <div class="context-chip-row" id="context-chip-row"></div>
+            </div>
+
+            <div class="chat-thread" id="chat-thread"></div>
+
+            <form class="chat-composer" id="chat-form">
+                <textarea id="chat-input" rows="3" placeholder="Escreva para a IA..."></textarea>
+                <button type="submit">Enviar</button>
+            </form>
+        </aside>
+    </main>
+
+    <dialog class="modal" id="entity-modal">
+        <form class="modal-card" id="entity-form">
+            <header class="modal-header">
+                <h2 id="modal-title">Novo item</h2>
+                <button type="button" class="icon-btn" id="modal-close-btn" aria-label="Fechar">×</button>
+            </header>
+            <div class="modal-fields" id="modal-fields"></div>
+            <footer class="modal-actions">
+                <button type="button" class="ghost-btn" id="delete-entity-btn">Excluir</button>
+                <div>
+                    <button type="button" class="ghost-btn" id="cancel-entity-btn">Cancelar</button>
+                    <button type="submit" class="primary-btn">Salvar</button>
+                </div>
+            </footer>
+        </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+</body>
+</html>
