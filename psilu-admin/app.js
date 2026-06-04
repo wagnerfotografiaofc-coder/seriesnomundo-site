@@ -132,7 +132,7 @@ function bindElements() {
         'auth-status', 'logout-btn', 'date-label', 'page-title', 'daily-phrase', 'home-task-list',
         'home-calendar-list', 'home-editorial-list', 'tasks-kanban', 'calendar-board',
         'editorial-list', 'docs-grid', 'strategies-grid', 'model-select', 'new-chat-btn',
-        'briefing-btn', 'context-chip-row', 'chat-thread', 'chat-form', 'chat-input',
+        'model-menu-btn', 'model-menu', 'model-current-label', 'briefing-btn', 'context-chip-row', 'chat-thread', 'chat-form', 'chat-input',
         'entity-modal', 'entity-form', 'modal-title', 'modal-fields', 'modal-close-btn',
         'cancel-entity-btn', 'delete-entity-btn'
     ].forEach(id => {
@@ -144,6 +144,8 @@ function bindEvents() {
     els.loginForm.addEventListener('submit', login);
     els.logoutBtn.addEventListener('click', () => supabaseClient.auth.signOut());
     els.newChatBtn.addEventListener('click', createChat);
+    els.modelMenuBtn.addEventListener('click', toggleModelMenu);
+    els.modelSelect.addEventListener('change', updateModelCurrentLabel);
     els.briefingBtn.addEventListener('click', prepareBriefing);
     els.chatForm.addEventListener('submit', sendChatMessage);
     els.entityForm.addEventListener('submit', saveEntity);
@@ -161,6 +163,10 @@ function bindEvents() {
 
     document.querySelectorAll('[data-context]').forEach(button => {
         button.addEventListener('click', () => addContext(button.dataset.context));
+    });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.model-picker')) closeModelMenu();
     });
 }
 
@@ -1066,6 +1072,41 @@ function renderContextChips() {
 
 function renderModelOptions() {
     els.modelSelect.innerHTML = MODELS.map(model => `<option value="${model.id}">${model.label}</option>`).join('');
+    els.modelMenu.innerHTML = MODELS.map(model => `
+        <button type="button" class="model-option" data-model-id="${escapeHTML(model.id)}">
+            <span>${escapeHTML(model.label)}</span>
+            <small>${model.family === 'claude' ? 'CMO' : 'Operação'}</small>
+        </button>
+    `).join('');
+    els.modelMenu.querySelectorAll('[data-model-id]').forEach(button => {
+        button.addEventListener('click', () => selectModel(button.dataset.modelId));
+    });
+    updateModelCurrentLabel();
+}
+
+function selectModel(modelId) {
+    els.modelSelect.value = modelId;
+    updateModelCurrentLabel();
+    closeModelMenu();
+}
+
+function updateModelCurrentLabel() {
+    const selectedModel = MODELS.find(model => model.id === els.modelSelect.value) || MODELS[0];
+    els.modelCurrentLabel.textContent = selectedModel ? selectedModel.label : 'DeepSeek Flash';
+    els.modelMenu?.querySelectorAll('[data-model-id]').forEach(button => {
+        button.classList.toggle('active', button.dataset.modelId === selectedModel?.id);
+    });
+}
+
+function toggleModelMenu() {
+    const isOpening = els.modelMenu.classList.contains('hidden');
+    els.modelMenu.classList.toggle('hidden', !isOpening);
+    els.modelMenuBtn.setAttribute('aria-expanded', String(isOpening));
+}
+
+function closeModelMenu() {
+    els.modelMenu.classList.add('hidden');
+    els.modelMenuBtn.setAttribute('aria-expanded', 'false');
 }
 
 function defaultOrder(key) {

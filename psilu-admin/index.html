@@ -133,33 +133,30 @@
 
         <aside class="ai-panel">
             <header class="ai-header">
-                <div>
-                    <p class="eyebrow">Assistente Psilu</p>
-                    <h2>IA sempre aberta</h2>
-                </div>
-                <button type="button" class="ghost-btn" id="new-chat-btn">Novo chat</button>
+                <h2>Assistente PsiLu</h2>
+                <button type="button" class="ghost-btn hidden" id="new-chat-btn">Novo chat</button>
             </header>
 
             <div class="ai-controls">
-                <label for="model-select">Modelo</label>
-                <select id="model-select"></select>
-                <div class="context-actions">
-                    <button type="button" data-context="today">Anexar hoje</button>
-                    <button type="button" data-context="tasks">Tarefas</button>
-                    <button type="button" data-context="calendar">Calendário</button>
-                    <button type="button" data-context="editorial">Editorial</button>
-                    <button type="button" data-context="docs">Docs</button>
-                    <button type="button" data-context="strategies">Estratégias</button>
-                </div>
+                <select id="model-select" aria-label="Modelo da IA"></select>
                 <button type="button" class="briefing-btn" id="briefing-btn">Preparar briefing CMO</button>
-                <div class="context-chip-row" id="context-chip-row"></div>
+                <div class="context-chip-row hidden" id="context-chip-row"></div>
             </div>
 
             <div class="chat-thread" id="chat-thread"></div>
 
             <form class="chat-composer" id="chat-form">
-                <textarea id="chat-input" rows="3" placeholder="Escreva para a IA..."></textarea>
-                <button type="submit">Enviar</button>
+                <div class="composer-box">
+                    <textarea id="chat-input" rows="3" placeholder="Como posso ajudar na Psilu?"></textarea>
+                    <div class="composer-footer">
+                        <div class="model-picker">
+                            <button type="button" class="model-menu-btn" id="model-menu-btn" aria-label="Escolher modelo" aria-expanded="false">+</button>
+                            <div class="model-menu hidden" id="model-menu"></div>
+                            <span class="model-current" id="model-current-label">DeepSeek Flash</span>
+                        </div>
+                        <button type="submit" class="send-btn" aria-label="Enviar mensagem">↑</button>
+                    </div>
+                </div>
             </form>
         </aside>
     </main>
