@@ -41,19 +41,23 @@ const MODEL_CONFIG = {
 
 const MASTER_PROMPT = `
 Voce e o assistente interno da Psilu, uma empresa de gestao de software para psicologos.
-Quando estiver usando DeepSeek, foque em operacao: criar tarefas, organizar calendario, resumir docs e preparar briefings.
+Voce nao e um chatbot generico. Voce e um assistente operacional dentro do painel: cria, edita, apaga, conclui, lista, resume, compara, organiza, avisa e prepara decisoes.
+Quando estiver usando DeepSeek, foque em operacao: tarefas, calendario, docs, estrategias, resumos e briefings.
 Quando estiver usando Claude, aja como CMO: diagnostique gargalos, proponha hipoteses, priorize testes e evite respostas genericas.
+Use sempre o horario local do painel informado em DADOS DO PAINEL. Nunca responda em UTC.
+Quando o Bruno disser "hoje" ou "amanha", use today_key e tomorrow_key de DADOS DO PAINEL, nao a data do servidor.
 Nunca afirme que executou uma acao fora do painel. Quando sugerir tarefas, eventos ou estrategias, deixe claro que precisam de aprovacao.
 Nunca diga "criei", "salvei", "adicionei" ou "marquei" uma tarefa/evento/doc se a acao ainda nao foi aprovada pelo Bruno no painel.
-Quando o usuario pedir para criar algo, responda como "Sugestao preparada para aprovacao" e liste os campos propostos.
+Quando o usuario pedir para criar, editar, apagar ou concluir algo, responda como "Sugestao preparada para aprovacao" e liste os campos propostos.
 Quando sugerir uma acao que o painel pode aprovar, inclua tambem um bloco oculto no fim:
 ACAO_SUGERIDA_JSON
-[{"type":"task|event|editorial|doc|strategy","title":"...","description":"...","payload":{"title":"...","description":"..."}}]
+[{"type":"task|event|editorial|doc|strategy","operation":"create|update|delete|complete","title":"...","description":"...","payload":{"title":"...","target_id":"id se existir no contexto","target_title":"titulo se existir","updates":{"priority":"alta"}}}]
 FIM_ACAO_SUGERIDA_JSON
 O texto visivel deve continuar humano e curto.
 Para analises CMO, responda com: diagnostico, evidencias, proximo teste e decisao recomendada.
 Se houver CONTEXTO ANEXADO, use esse contexto como fonte real do painel. Nao diga que nao tem acesso ao painel quando o contexto anexado trouxer tarefas, calendario, docs ou estrategias.
-Se faltar contexto real, diga exatamente qual contexto precisa em vez de inventar.
+Se o contexto anexado estiver vazio, diga que nao ha itens cadastrados naquele modulo.
+Se faltar contexto real para uma decisao, diga exatamente qual contexto precisa em vez de inventar.
 Seja objetivo. Use o menor tamanho necessario e nunca escreva relatorio longo sem necessidade.
 `;
 
@@ -70,6 +74,8 @@ module.exports = async function handler(request, response) {
         const selectedConfig = MODEL_CONFIG[body.modelId] || MODEL_CONFIG['deepseek-flash'];
         const maxOutputTokens = Math.min(Number(body.maxOutputTokens || selectedConfig.maxOutput), selectedConfig.maxOutput);
         const contextText = buildContextText(body.context);
+        const metaText = buildMetaText(body.clientMeta);
+        const historyText = buildHistoryText(body.history);
         const userMessage = String(body.message || '').trim();
 
         if (!userMessage) {
@@ -77,6 +83,8 @@ module.exports = async function handler(request, response) {
         }
 
         const prompt = [
+            metaText ? `DADOS DO PAINEL:\n${metaText}` : '',
+            historyText ? `HISTORICO RECENTE DO CHAT:\n${historyText}` : '',
             contextText ? `CONTEXTO ANEXADO:\n${contextText}` : '',
             `MENSAGEM DO BRUNO:\n${userMessage}`
         ].join('\n\n');
@@ -206,6 +214,26 @@ function buildContextText(context) {
     }).join('\n\n').slice(0, 24000);
 }
 
+function buildMetaText(meta) {
+    if (!meta || typeof meta !== 'object') return '';
+    return JSON.stringify({
+        timezone: meta.timezone || 'America/Sao_Paulo',
+        now_local: meta.now_local,
+        today_key: meta.today_key,
+        tomorrow_key: meta.tomorrow_key,
+        today_label: meta.today_label,
+        tomorrow_label: meta.tomorrow_label
+    }, null, 2);
+}
+
+function buildHistoryText(history) {
+    if (!Array.isArray(history) || !history.length) return '';
+    return history.slice(-10).map(message => {
+        const role = message.role === 'assistant' ? 'Assistente' : 'Bruno';
+        return `${role} (${message.created_at || ''}): ${message.content || ''}`;
+    }).join('\n').slice(0, 8000);
+}
+
 function estimateTokens(text) {
     return Math.ceil(String(text || '').length / 4);
 }
@@ -245,12 +273,53 @@ function inferActionsFromText(userMessage, assistantText) {
     const source = `${userMessage}\n${assistantText}`;
     const normalized = normalizeForSearch(source);
     const wantsCreate = /\b(crie|criar|adicione|adicionar|marque|marcar|agende|agendar|coloque|colocar|registre|registrar|prepare)\b/.test(normalized);
-    if (!wantsCreate) return [];
+    const wantsUpdate = /\b(altere|alterar|mude|mudar|edite|editar|atualize|atualizar|troque|trocar)\b/.test(normalized);
+    const wantsDelete = /\b(apague|apagar|delete|deletar|exclua|excluir|remova|remover)\b/.test(normalized);
+    const wantsComplete = /\b(conclua|concluir|finalize|finalizar|marque como concluida|marcar como concluida|feito)\b/.test(normalized);
+
+    if (!wantsCreate && !wantsUpdate && !wantsDelete && !wantsComplete) return [];
+
+    if (wantsComplete && /\b(tarefa|tarefas|task|pendencia)\b/.test(normalized)) {
+        const targetTitle = inferTargetTitle(userMessage);
+        return [normalizeAction({
+            type: 'task',
+            operation: 'complete',
+            title: targetTitle || 'Concluir tarefa',
+            description: `Sugestao para concluir tarefa a partir do pedido: ${userMessage}`,
+            payload: { target_title: targetTitle }
+        }, userMessage)];
+    }
+
+    if (wantsDelete) {
+        const modalType = inferEntityType(normalized);
+        const targetTitle = inferTargetTitle(userMessage);
+        return [normalizeAction({
+            type: modalType,
+            operation: 'delete',
+            title: targetTitle || `Apagar ${modalType}`,
+            description: `Sugestao para apagar item a partir do pedido: ${userMessage}`,
+            payload: { target_title: targetTitle }
+        }, userMessage)];
+    }
+
+    if (wantsUpdate) {
+        const modalType = inferEntityType(normalized);
+        const targetTitle = inferTargetTitle(userMessage);
+        const updates = inferUpdates(normalized);
+        return [normalizeAction({
+            type: modalType,
+            operation: 'update',
+            title: targetTitle || `Editar ${modalType}`,
+            description: `Sugestao de edicao preparada a partir do pedido: ${userMessage}`,
+            payload: { target_title: targetTitle, updates }
+        }, userMessage)];
+    }
 
     if (/\b(tarefa|tarefas|task|pendencia)\b/.test(normalized)) {
         const title = inferTitle(userMessage, 'Tarefa sugerida');
         return [normalizeAction({
             type: 'task',
+            operation: 'create',
             title,
             description: `Sugestao preparada a partir do pedido: ${userMessage}`,
             payload: {
@@ -267,6 +336,7 @@ function inferActionsFromText(userMessage, assistantText) {
         const title = inferTitle(userMessage, 'Evento sugerido');
         return [normalizeAction({
             type: 'event',
+            operation: 'create',
             title,
             description: `Sugestao preparada a partir do pedido: ${userMessage}`,
             payload: {
@@ -281,6 +351,7 @@ function inferActionsFromText(userMessage, assistantText) {
         const title = inferTitle(userMessage, 'Item editorial sugerido');
         return [normalizeAction({
             type: 'editorial',
+            operation: 'create',
             title,
             description: `Sugestao preparada a partir do pedido: ${userMessage}`,
             payload: { title, channel: inferChannel(normalized), status: 'ideia' }
@@ -291,6 +362,7 @@ function inferActionsFromText(userMessage, assistantText) {
         const title = inferTitle(userMessage, 'Documento sugerido');
         return [normalizeAction({
             type: 'doc',
+            operation: 'create',
             title,
             description: `Sugestao preparada a partir do pedido: ${userMessage}`,
             payload: { title, category: 'Outro', content: '' }
@@ -301,6 +373,7 @@ function inferActionsFromText(userMessage, assistantText) {
         const title = inferTitle(userMessage, 'Estrategia sugerida');
         return [normalizeAction({
             type: 'strategy',
+            operation: 'create',
             title,
             description: `Sugestao preparada a partir do pedido: ${userMessage}`,
             payload: { title, category: 'Marketing', description: '' }
@@ -316,8 +389,10 @@ function normalizeAction(action, userMessage) {
     if (!type) return null;
     const payload = action.payload && typeof action.payload === 'object' ? action.payload : {};
     const title = String(action.title || payload.title || 'Acao sugerida').trim();
+    const operation = normalizeOperation(action.operation || payload.operation);
     return {
         type,
+        operation,
         title,
         description: String(action.description || 'Revise os campos antes de aprovar no painel.').trim(),
         payload: { ...payload, title: payload.title || title },
@@ -331,6 +406,60 @@ function normalizeActionType(type) {
     if (normalized === 'calendar') return 'event';
     if (normalized === 'document') return 'doc';
     return null;
+}
+
+function normalizeOperation(operation) {
+    const normalized = normalizeForSearch(operation || 'create');
+    if (['create', 'update', 'delete', 'complete'].includes(normalized)) return normalized;
+    if (['edit', 'editar'].includes(normalized)) return 'update';
+    if (['remove', 'remover', 'apagar', 'excluir', 'deletar'].includes(normalized)) return 'delete';
+    if (['concluir', 'finalizar', 'done'].includes(normalized)) return 'complete';
+    return 'create';
+}
+
+function inferEntityType(normalizedText) {
+    if (/\b(estrategia|estrategias|teste|prospeccao)\b/.test(normalizedText)) return 'strategy';
+    if (/\b(calendario|agenda|evento|reuniao|compromisso)\b/.test(normalizedText)) return 'event';
+    if (/\b(editorial|post|conteudo|instagram|tiktok|email|whatsapp)\b/.test(normalizedText)) return 'editorial';
+    if (/\b(doc|documento|icp|concorrente|produto|oferta)\b/.test(normalizedText)) return 'doc';
+    return 'task';
+}
+
+function inferUpdates(normalizedText) {
+    const updates = {};
+    if (/\bprioridade\b/.test(normalizedText)) {
+        const explicitPriority = normalizedText.match(/\bpara\s+(alta|media|baixa)\b/);
+        if (explicitPriority) {
+            updates.priority = explicitPriority[1];
+        } else if (/\balta\b/.test(normalizedText)) {
+            updates.priority = 'alta';
+        } else if (/\bmedia\b/.test(normalizedText)) {
+            updates.priority = 'media';
+        } else if (/\bbaixa\b/.test(normalizedText)) {
+            updates.priority = 'baixa';
+        }
+    }
+    if (/\bstatus\b/.test(normalizedText)) {
+        if (/\ba fazer\b|\bpendente\b/.test(normalizedText)) updates.status = 'a_fazer';
+        if (/\bfazendo\b|\bem andamento\b/.test(normalizedText)) updates.status = 'fazendo';
+        if (/\baguardando\b/.test(normalizedText)) updates.status = 'aguardando';
+        if (/\bconcluido\b|\bconcluida\b|\bfeito\b/.test(normalizedText)) updates.status = 'concluido';
+    }
+    return updates;
+}
+
+function inferTargetTitle(message) {
+    const text = String(message || '').trim();
+    const quoted = text.match(/["“'`](.+?)["”'`]/);
+    if (quoted) return cleanTitle(quoted[1], '');
+
+    const explicit = text.match(/(?:tarefa|evento|documento|doc|estrategia|estrat[ée]gia)\s+(?:chamada|chamado|de nome|com titulo|com t[íi]tulo)?\s*([^,.]+?)(?:\s+(?:para|de|do|da|como)\b|,|\.|$)/i);
+    if (explicit) return cleanTitle(explicit[1], '');
+
+    const afterDa = text.match(/(?:da|do)\s+(?:tarefa|evento|documento|estrategia)\s+([^,.]+?)(?:\s+(?:para|de|como)\b|,|\.|$)/i);
+    if (afterDa) return cleanTitle(afterDa[1], '');
+
+    return '';
 }
 
 function inferTitle(message, fallback) {

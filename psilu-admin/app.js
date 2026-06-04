@@ -20,14 +20,18 @@ const DAILY_PHRASES = [
     'A estrategia aparece quando os dados param de ficar soltos.'
 ];
 
+const CHAT_STORAGE_PREFIX = 'psilu-active-chat';
+
 const state = {
     user: null,
+    loadedUserId: null,
     activeView: 'home',
     activeModal: null,
     editingId: null,
     currentChatId: null,
     context: [],
     pendingActions: {},
+    reviewingActionId: null,
     entities: {
         tasks: [],
         events: [],
@@ -174,10 +178,16 @@ async function handleSession(session) {
     els.appShell.classList.toggle('hidden', !state.user);
     els.authStatus.textContent = state.user?.email || '';
 
-    if (state.user) {
-        await loadAll();
-        await createChat();
+    if (!state.user) {
+        state.loadedUserId = null;
+        return;
     }
+
+    if (state.loadedUserId === state.user.id) return;
+    state.loadedUserId = state.user.id;
+
+    await loadAll();
+    await restoreChat();
 }
 
 async function login(event) {
@@ -316,8 +326,8 @@ function renderCalendar() {
 
     for (let day = 1; day <= last.getDate(); day += 1) {
         const date = new Date(first.getFullYear(), first.getMonth(), day);
-        const iso = date.toISOString().slice(0, 10);
-        const events = state.entities.events.filter(event => String(event.starts_at || '').slice(0, 10) === iso);
+        const dayKey = localDateKey(date);
+        const events = state.entities.events.filter(event => localDateKey(event.starts_at) === dayKey);
         days.push(`
             <article class="day-cell">
                 <div class="day-number">${day}</div>
@@ -385,8 +395,9 @@ function openModal(type, id = null, seed = null) {
     const config = modalConfigs[type];
     state.activeModal = type;
     state.editingId = id;
-    const item = id
-        ? state.entities[config.table].find(entity => String(entity.id) === String(id))
+    const existingItem = id ? state.entities[config.table].find(entity => String(entity.id) === String(id)) : null;
+    const item = existingItem
+        ? { ...existingItem, ...(seed || {}) }
         : { ...config.defaults, ...(seed || {}) };
 
     els.modalTitle.textContent = `${id ? 'Editar' : 'Novo'} ${config.title.toLowerCase()}`;
@@ -416,6 +427,7 @@ function closeModal() {
     els.entityModal.close();
     state.activeModal = null;
     state.editingId = null;
+    state.reviewingActionId = null;
 }
 
 async function saveEntity(event) {
@@ -435,6 +447,8 @@ async function saveEntity(event) {
         return;
     }
 
+    const reviewedAction = state.pendingActions[state.reviewingActionId];
+    if (reviewedAction) await markSuggestedActionDone(reviewedAction);
     closeModal();
     await loadTable(config.table, defaultOrder(config.table));
     renderAll();
@@ -475,6 +489,7 @@ async function createChat() {
     state.context = [];
     state.currentChatId = null;
     state.entities.messages = [];
+    state.pendingActions = {};
     els.chatThread.innerHTML = '';
     renderContextChips();
 
@@ -490,7 +505,64 @@ async function createChat() {
     }
 
     state.currentChatId = data.id;
+    setStoredChatId(data.id);
     addSystemMessage('Novo chat iniciado. Anexe contexto quando quiser que a IA leia dados do painel.');
+}
+
+async function restoreChat() {
+    state.context = [];
+    state.pendingActions = {};
+    els.chatThread.innerHTML = '';
+    renderContextChips();
+
+    const storedChatId = getStoredChatId();
+    if (storedChatId && await loadChat(storedChatId)) return;
+
+    const { data: latestChat } = await supabaseClient
+        .from(tables.chats)
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (latestChat?.id && await loadChat(latestChat.id)) return;
+
+    await createChat();
+}
+
+async function loadChat(chatId) {
+    const { data: chat, error: chatError } = await supabaseClient
+        .from(tables.chats)
+        .select('*')
+        .eq('id', chatId)
+        .maybeSingle();
+
+    if (chatError || !chat) return false;
+
+    const { data: messages, error: messagesError } = await supabaseClient
+        .from(tables.messages)
+        .select('*')
+        .eq('chat_id', chat.id)
+        .order('created_at', { ascending: true });
+
+    if (messagesError) return false;
+
+    state.currentChatId = chat.id;
+    state.entities.messages = messages || [];
+    setStoredChatId(chat.id);
+    els.chatThread.innerHTML = '';
+    state.entities.messages.forEach(message => {
+        addChatBubble(message.role, message.content, message.role === 'assistant' ? {
+            inputTokens: message.input_tokens,
+            outputTokens: message.output_tokens,
+            estimatedCost: message.estimated_cost
+        } : null, [], { persist: false });
+    });
+    await renderPendingActionsForChat(chat.id);
+    if (!state.entities.messages.length) {
+        addSystemMessage('Chat restaurado. Anexe contexto quando quiser que a IA leia dados do painel.');
+    }
+    return true;
 }
 
 async function sendChatMessage(event) {
@@ -506,12 +578,15 @@ async function sendChatMessage(event) {
     if (inferredContexts.length) {
         addChatBubble('system', `Contexto anexado automaticamente: ${inferredContexts.join(', ')}.`);
     }
+    refreshAttachedContext();
 
     const payload = {
         chatId: state.currentChatId,
         modelId: model.id,
         message: text,
-        context: state.context,
+        context: buildAiContextPayload(),
+        history: buildRecentChatHistory(),
+        clientMeta: getClientMeta(),
         maxOutputTokens: model.family === 'claude' ? 1500 : model.maxOutput
     };
 
@@ -547,6 +622,7 @@ async function saveMessage(role, content, model, usage = null) {
         output_tokens: usage?.outputTokens || 0,
         estimated_cost: usage?.estimatedCost || 0
     }).select().single();
+    await updateChatActivity();
     return data;
 }
 
@@ -555,15 +631,64 @@ async function saveSuggestedActions(messageId, actions) {
     const rows = actions.map(action => ({
         chat_id: state.currentChatId,
         message_id: messageId,
-        action_type: action.type || action.action_type || 'note',
+        action_type: `${action.operation || 'create'}_${action.type || action.action_type || 'note'}`,
         title: action.title || 'Acao sugerida',
-        payload: action.payload || {},
+        payload: { ...(action.payload || {}), sourceMessage: action.sourceMessage || '', localId: action.localId || '' },
         status: 'pending'
     }));
-    await supabaseClient.from(tables.actions).insert(rows);
+    const { data } = await supabaseClient.from(tables.actions).insert(rows).select();
+    (data || []).forEach(row => {
+        const localId = row.payload?.localId;
+        if (localId && state.pendingActions[localId]) {
+            state.pendingActions[localId].dbId = row.id;
+        }
+    });
 }
 
-function addChatBubble(role, text, usage = null, suggestedActions = []) {
+async function renderPendingActionsForChat(chatId) {
+    const { data } = await supabaseClient
+        .from(tables.actions)
+        .select('*')
+        .eq('chat_id', chatId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+    if (!Array.isArray(data) || !data.length) return;
+
+    const actions = data.map(row => {
+        const [operation, ...typeParts] = String(row.action_type || 'create_note').split('_');
+        return {
+            type: typeParts.join('_') || 'note',
+            operation: operation || 'create',
+            title: row.title,
+            description: 'Acao pendente salva neste chat.',
+            payload: row.payload || {},
+            sourceMessage: row.payload?.sourceMessage || '',
+            dbId: row.id
+        };
+    });
+    addChatBubble('system', 'Acoes pendentes deste chat:', null, actions, { persist: false });
+}
+
+async function updateChatActivity() {
+    if (!state.currentChatId) return;
+    await supabaseClient
+        .from(tables.chats)
+        .update({ updated_at: new Date().toISOString(), model_id: els.modelSelect.value || MODELS[0].id })
+        .eq('id', state.currentChatId);
+}
+
+function getStoredChatId() {
+    if (!state.user) return '';
+    return localStorage.getItem(`${CHAT_STORAGE_PREFIX}:${state.user.id}`) || '';
+}
+
+function setStoredChatId(chatId) {
+    if (!state.user || !chatId) return;
+    localStorage.setItem(`${CHAT_STORAGE_PREFIX}:${state.user.id}`, chatId);
+}
+
+function addChatBubble(role, text, usage = null, suggestedActions = [], options = {}) {
     const bubble = document.createElement('div');
     bubble.className = `message ${role}`;
     const actions = rememberSuggestedActions(suggestedActions);
@@ -571,6 +696,9 @@ function addChatBubble(role, text, usage = null, suggestedActions = []) {
     els.chatThread.appendChild(bubble);
     bindSuggestedActionButtons(bubble);
     els.chatThread.scrollTop = els.chatThread.scrollHeight;
+    if (options.persist !== false && role !== 'system') {
+        state.entities.messages.push({ role, content: text, created_at: new Date().toISOString() });
+    }
 }
 
 function addSystemMessage(text) {
@@ -619,6 +747,28 @@ function reviewSuggestedAction(actionId) {
         return;
     }
 
+    const operation = action.operation || action.payload?.operation || 'create';
+    if (operation === 'complete') {
+        completeSuggestedEntity(action, modalType);
+        return;
+    }
+    if (operation === 'delete') {
+        deleteSuggestedEntity(action, modalType);
+        return;
+    }
+
+    if (['update', 'edit'].includes(operation)) {
+        const target = findTargetEntity(action, modalType);
+        if (!target) {
+            addChatBubble('system', 'Nao encontrei o item para editar. Abra o item manualmente ou peca com o titulo exato.');
+            return;
+        }
+        state.reviewingActionId = actionId;
+        openModal(modalType, target.id, payloadForSuggestedAction(action, modalType));
+        return;
+    }
+
+    state.reviewingActionId = actionId;
     openModal(modalType, null, payloadForSuggestedAction(action, modalType));
 }
 
@@ -632,7 +782,14 @@ function modalTypeForAction(action) {
 
 function payloadForSuggestedAction(action, modalType) {
     const payload = { ...(action.payload || {}) };
-    const inferredDate = inferDateTimeFromText(action.sourceMessage || action.description || action.title || '');
+    const inferredDate = inferDateTimeFromText(action.sourceMessage || payload.sourceMessage || action.description || action.title || '');
+    const operation = action.operation || payload.operation || 'create';
+
+    if (['update', 'edit'].includes(operation)) {
+        const target = findTargetEntity(action, modalType);
+        if (!target) return payload;
+        return { ...target, ...(payload.updates || payload) };
+    }
 
     if (modalType === 'task') {
         return {
@@ -640,7 +797,7 @@ function payloadForSuggestedAction(action, modalType) {
             description: payload.description || action.description || '',
             status: payload.status || 'a_fazer',
             priority: payload.priority || 'media',
-            due_at: payload.due_at || inferredDate || '',
+            due_at: inferredDate || payload.due_at || '',
             origin: 'ia'
         };
     }
@@ -649,7 +806,7 @@ function payloadForSuggestedAction(action, modalType) {
         return {
             title: payload.title || action.title || 'Evento sugerido',
             description: payload.description || action.description || '',
-            starts_at: payload.starts_at || inferredDate || '',
+            starts_at: inferredDate || payload.starts_at || '',
             ends_at: payload.ends_at || '',
             event_type: payload.event_type || 'operacao'
         };
@@ -660,7 +817,7 @@ function payloadForSuggestedAction(action, modalType) {
             title: payload.title || action.title || 'Item editorial sugerido',
             channel: payload.channel || 'Instagram',
             status: payload.status || 'ideia',
-            publish_at: payload.publish_at || inferredDate || '',
+            publish_at: inferredDate || payload.publish_at || '',
             summary: payload.summary || action.description || '',
             notes: payload.notes || ''
         };
@@ -681,6 +838,73 @@ function payloadForSuggestedAction(action, modalType) {
         description: payload.description || action.description || '',
         notes: payload.notes || ''
     };
+}
+
+function findTargetEntity(action, modalType) {
+    const config = modalConfigs[modalType];
+    if (!config) return null;
+    const payload = action.payload || {};
+    const list = state.entities[config.table] || [];
+
+    if (payload.target_id) {
+        const byId = list.find(item => String(item.id) === String(payload.target_id));
+        if (byId) return byId;
+    }
+
+    const targetTitle = normalizeForSearch(payload.target_title || payload.title || action.target_title || action.title || '');
+    if (!targetTitle) return null;
+
+    return list.find(item => normalizeForSearch(item.title) === targetTitle)
+        || list.find(item => normalizeForSearch(item.title).includes(targetTitle))
+        || list.find(item => targetTitle.includes(normalizeForSearch(item.title)));
+}
+
+async function completeSuggestedEntity(action, modalType) {
+    const target = findTargetEntity(action, modalType);
+    if (!target) {
+        addChatBubble('system', 'Nao encontrei o item para concluir. Peca usando o titulo exato.');
+        return;
+    }
+
+    if (modalType !== 'task') {
+        addChatBubble('system', 'Conclusao automatica por aprovacao esta disponivel para tarefas. Para outros itens, revise manualmente.');
+        return;
+    }
+
+    await completeTask(target.id);
+    await markSuggestedActionDone(action);
+    addChatBubble('system', `Tarefa "${target.title}" concluida com sua aprovacao.`);
+}
+
+async function deleteSuggestedEntity(action, modalType) {
+    const target = findTargetEntity(action, modalType);
+    const config = modalConfigs[modalType];
+    if (!target || !config) {
+        addChatBubble('system', 'Nao encontrei o item para apagar. Peca usando o titulo exato.');
+        return;
+    }
+
+    const confirmed = window.confirm(`Apagar "${target.title}"? Essa acao nao pode ser desfeita.`);
+    if (!confirmed) return;
+
+    const { error } = await supabaseClient.from(tables[config.table]).delete().eq('id', target.id);
+    if (error) {
+        addChatBubble('system', error.message);
+        return;
+    }
+
+    await markSuggestedActionDone(action);
+    await loadTable(config.table, defaultOrder(config.table));
+    renderAll();
+    addChatBubble('system', `"${target.title}" apagado com sua aprovacao.`);
+}
+
+async function markSuggestedActionDone(action) {
+    if (!action.dbId) return;
+    await supabaseClient
+        .from(tables.actions)
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('id', action.dbId);
 }
 
 async function addContext(type) {
@@ -704,11 +928,56 @@ function addContextFromMessage(message) {
     return addedLabels;
 }
 
+function refreshAttachedContext() {
+    state.context = state.context.map(item => ({
+        ...item,
+        data: item.type === 'briefing' ? item.data : getContextData(item.type)
+    }));
+}
+
+function buildAiContextPayload() {
+    refreshAttachedContext();
+    return state.context.map(item => ({
+        type: item.type,
+        label: item.label,
+        data: item.data
+    }));
+}
+
+function buildRecentChatHistory() {
+    return state.entities.messages
+        .filter(message => ['user', 'assistant'].includes(message.role))
+        .slice(-10)
+        .map(message => ({
+            role: message.role,
+            content: message.content,
+            created_at: formatDateTimeForAi(message.created_at || new Date().toISOString())
+        }));
+}
+
+function getClientMeta() {
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
+        locale: 'pt-BR',
+        now_iso: now.toISOString(),
+        now_local: formatDateTimeForAi(now),
+        today_key: localDateKey(now),
+        tomorrow_key: localDateKey(tomorrow),
+        today_label: formatDateOnlyForAi(now),
+        tomorrow_label: formatDateOnlyForAi(tomorrow)
+    };
+}
+
 function inferContextTypes(message) {
     const text = normalizeForSearch(message);
     const types = new Set();
 
     if (/(hoje|meu dia|dia de hoje|rotina|agora)/.test(text)) types.add('today');
+    if (/(amanha|proximo dia|pr[oó]ximo dia|o que eu tenho|o que tenho)/.test(text)) {
+        ['tasks', 'calendar', 'editorial'].forEach(type => types.add(type));
+    }
     if (/(tarefa|tarefas|pendencia|pendencias|kanban|fazer|fazendo|concluid)/.test(text)) types.add('tasks');
     if (/(calendario|agenda|compromisso|reuniao|evento|eventos|horario)/.test(text)) types.add('calendar');
     if (/(editorial|conteudo|post|posts|instagram|tiktok|email|whatsapp)/.test(text)) types.add('editorial');
@@ -778,12 +1047,16 @@ function getContextData(type) {
     if (type === 'today') {
         const today = localDateKey(new Date());
         return {
-            tasks: state.entities.tasks.filter(item => localDateKey(item.due_at) === today),
-            events: state.entities.events.filter(item => localDateKey(item.starts_at) === today),
-            editorial: state.entities.editorial.filter(item => localDateKey(item.publish_at) === today)
+            tasks: state.entities.tasks.filter(item => localDateKey(item.due_at) === today).map(serializeTaskForAi),
+            events: state.entities.events.filter(item => localDateKey(item.starts_at) === today).map(serializeEventForAi),
+            editorial: state.entities.editorial.filter(item => localDateKey(item.publish_at) === today).map(serializeEditorialForAi)
         };
     }
-    if (type === 'calendar') return state.entities.events;
+    if (type === 'tasks') return state.entities.tasks.map(serializeTaskForAi);
+    if (type === 'calendar') return state.entities.events.map(serializeEventForAi);
+    if (type === 'editorial') return state.entities.editorial.map(serializeEditorialForAi);
+    if (type === 'docs') return state.entities.docs.map(serializeDocForAi);
+    if (type === 'strategies') return state.entities.strategies.map(serializeStrategyForAi);
     return state.entities[type] || [];
 }
 
@@ -858,6 +1131,94 @@ function truncate(value, maxLength) {
     return text.length > maxLength ? `${escapeHTML(text.slice(0, maxLength))}...` : escapeHTML(text);
 }
 
+function serializeTaskForAi(task) {
+    return {
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status || 'a_fazer',
+        priority: task.priority || 'media',
+        origin: task.origin || 'manual',
+        due_at_iso: task.due_at || null,
+        due_at_local: formatDateTimeForAi(task.due_at),
+        due_date_key: localDateKey(task.due_at),
+        completed_at_local: formatDateTimeForAi(task.completed_at),
+        updated_at_local: formatDateTimeForAi(task.updated_at)
+    };
+}
+
+function serializeEventForAi(event) {
+    return {
+        id: event.id,
+        title: event.title,
+        description: event.description || '',
+        event_type: event.event_type || 'operacao',
+        starts_at_iso: event.starts_at || null,
+        starts_at_local: formatDateTimeForAi(event.starts_at),
+        starts_date_key: localDateKey(event.starts_at),
+        ends_at_local: formatDateTimeForAi(event.ends_at)
+    };
+}
+
+function serializeEditorialForAi(item) {
+    return {
+        id: item.id,
+        title: item.title,
+        channel: item.channel || '',
+        status: item.status || 'ideia',
+        publish_at_iso: item.publish_at || null,
+        publish_at_local: formatDateTimeForAi(item.publish_at),
+        publish_date_key: localDateKey(item.publish_at),
+        summary: item.summary || '',
+        notes: item.notes || ''
+    };
+}
+
+function serializeDocForAi(doc) {
+    return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category || 'Outro',
+        tags: doc.tags || '',
+        content: doc.content || '',
+        updated_at_local: formatDateTimeForAi(doc.updated_at)
+    };
+}
+
+function serializeStrategyForAi(strategy) {
+    return {
+        id: strategy.id,
+        title: strategy.title,
+        category: strategy.category || 'Marketing',
+        description: strategy.description || '',
+        notes: strategy.notes || '',
+        updated_at_local: formatDateTimeForAi(strategy.updated_at)
+    };
+}
+
+function formatDateTimeForAi(value) {
+    if (!value) return '';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatDateOnlyForAi(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
 function normalizeForSearch(value) {
     return String(value || '')
         .normalize('NFD')
@@ -869,9 +1230,11 @@ function inferDateTimeFromText(value) {
     const text = normalizeForSearch(value);
     const now = new Date();
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0, 0);
+    let hasDateClue = false;
 
     if (/\bamanha\b/.test(text)) {
         date.setDate(date.getDate() + 1);
+        hasDateClue = true;
     } else {
         const explicitDate = text.match(/\b(?:dia\s*)?(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/);
         if (explicitDate) {
@@ -881,13 +1244,18 @@ function inferDateTimeFromText(value) {
                 ? Number(explicitDate[3].length === 2 ? `20${explicitDate[3]}` : explicitDate[3])
                 : now.getFullYear();
             date.setFullYear(year, month, day);
+            hasDateClue = true;
+        } else if (/\bhoje\b/.test(text)) {
+            hasDateClue = true;
         }
     }
 
     const hourMatch = text.match(/\b(?:as|a)\s*(\d{1,2})(?::(\d{2})|h(\d{2})?| horas?)?\b/) || text.match(/\b(\d{1,2})(?::(\d{2})|h(\d{2})?)\b/);
     if (hourMatch) {
         date.setHours(Number(hourMatch[1]), Number(hourMatch[2] || hourMatch[3] || 0), 0, 0);
+        hasDateClue = true;
     }
 
+    if (!hasDateClue) return '';
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
