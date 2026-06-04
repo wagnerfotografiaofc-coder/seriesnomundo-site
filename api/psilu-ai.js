@@ -190,7 +190,6 @@ async function callAnthropic(config, prompt, maxTokens) {
         body: JSON.stringify({
             model: config.model,
             max_tokens: Math.min(maxTokens, 1500),
-            temperature: 0.35,
             system: MASTER_PROMPT,
             messages: [{ role: 'user', content: prompt }]
         })
