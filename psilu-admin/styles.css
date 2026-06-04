@@ -410,7 +410,10 @@ textarea:focus {
 }
 
 .ai-header {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     padding: 28px 28px 12px;
     border-bottom: 0;
 }
@@ -421,6 +424,22 @@ textarea:focus {
     font-size: clamp(1.35rem, 2vw, 1.9rem);
     font-weight: 600;
     line-height: 1.1;
+}
+
+.new-chat-link {
+    border: 1px solid rgba(244, 239, 230, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 252, 246, 0.06);
+    color: #cfc1b1;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.new-chat-link:hover {
+    background: rgba(246, 182, 109, 0.12);
+    color: #fff3e8;
 }
 
 .ai-controls {
