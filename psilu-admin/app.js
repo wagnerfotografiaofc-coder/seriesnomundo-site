@@ -577,24 +577,28 @@ async function sendChatMessage(event) {
     if (!text) return;
 
     const model = MODELS.find(item => item.id === els.modelSelect.value) || MODELS[0];
+    const isClaudeModel = model.family === 'claude';
     els.chatInput.value = '';
     addChatBubble('user', text);
     await saveMessage('user', text, model);
-    await loadAll();
-    const inferredContexts = addContextFromMessage(text);
-    if (inferredContexts.length) {
-        addChatBubble('system', `Contexto anexado automaticamente: ${inferredContexts.join(', ')}.`);
+
+    if (!isClaudeModel) {
+        await loadAll();
+        const inferredContexts = addContextFromMessage(text);
+        if (inferredContexts.length) {
+            addChatBubble('system', `Contexto anexado automaticamente: ${inferredContexts.join(', ')}.`);
+        }
+        refreshAttachedContext();
     }
-    refreshAttachedContext();
 
     const payload = {
         chatId: state.currentChatId,
         modelId: model.id,
         message: text,
-        context: buildAiContextPayload(text),
-        history: buildRecentChatHistory(),
+        context: isClaudeModel ? [] : buildAiContextPayload(text),
+        history: buildRecentChatHistory(isClaudeModel ? 2400 : 600),
         clientMeta: getClientMeta(),
-        maxOutputTokens: model.family === 'claude' ? 1500 : model.maxOutput
+        maxOutputTokens: isClaudeModel ? 1500 : model.maxOutput
     };
 
     try {
@@ -962,13 +966,13 @@ function buildAiContextPayload(message = '') {
     return [snapshot, ...detailedContext];
 }
 
-function buildRecentChatHistory() {
+function buildRecentChatHistory(maxMessageLength = 600) {
     return state.entities.messages
         .filter(message => ['user', 'assistant'].includes(message.role))
         .slice(-6)
         .map(message => ({
             role: message.role,
-            content: plainTruncate(message.content, 600),
+            content: plainTruncate(message.content, maxMessageLength),
             created_at: formatDateTimeForAi(message.created_at || new Date().toISOString())
         }));
 }
