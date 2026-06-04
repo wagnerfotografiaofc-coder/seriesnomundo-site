@@ -580,6 +580,7 @@ async function sendChatMessage(event) {
     els.chatInput.value = '';
     addChatBubble('user', text);
     await saveMessage('user', text, model);
+    await loadAll();
     const inferredContexts = addContextFromMessage(text);
     if (inferredContexts.length) {
         addChatBubble('system', `Contexto anexado automaticamente: ${inferredContexts.join(', ')}.`);
@@ -943,11 +944,16 @@ function refreshAttachedContext() {
 
 function buildAiContextPayload() {
     refreshAttachedContext();
-    return state.context.map(item => ({
+    const snapshot = {
+        type: 'operational_snapshot',
+        label: 'Snapshot operacional do painel',
+        data: getOperationalSnapshotForAi()
+    };
+    return [snapshot, ...state.context.map(item => ({
         type: item.type,
         label: item.label,
         data: item.data
-    }));
+    }))];
 }
 
 function buildRecentChatHistory() {
@@ -1029,7 +1035,7 @@ async function prepareBriefing() {
             body: JSON.stringify({
                 modelId: 'deepseek-flash',
                 message: 'Prepare um briefing CMO curto para Sonnet/Opus. Resuma situacao do dia, tarefas, calendario, editorial, docs, estrategias, gargalos percebidos e proximos pontos de decisao.',
-                context: state.context,
+                context: buildAiContextPayload(),
                 maxOutputTokens: 1200
             })
         });
@@ -1064,6 +1070,47 @@ function getContextData(type) {
     if (type === 'docs') return state.entities.docs.map(serializeDocForAi);
     if (type === 'strategies') return state.entities.strategies.map(serializeStrategyForAi);
     return state.entities[type] || [];
+}
+
+function getOperationalSnapshotForAi() {
+    const tasks = state.entities.tasks.map(serializeTaskForAi);
+    const events = state.entities.events.map(serializeEventForAi);
+    const editorial = state.entities.editorial.map(serializeEditorialForAi);
+    const docs = state.entities.docs.map(serializeDocForAi);
+    const strategies = state.entities.strategies.map(serializeStrategyForAi);
+    const todayKey = localDateKey(new Date());
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowKey = localDateKey(tomorrowDate);
+
+    return {
+        generated_at_local: formatDateTimeForAi(new Date()),
+        counts: {
+            tasks: tasks.length,
+            open_tasks: tasks.filter(task => task.status !== 'concluido').length,
+            events: events.length,
+            editorial_items: editorial.length,
+            docs: docs.length,
+            strategies: strategies.length
+        },
+        today: {
+            date_key: todayKey,
+            tasks: tasks.filter(task => task.due_date_key === todayKey),
+            events: events.filter(event => event.starts_date_key === todayKey),
+            editorial: editorial.filter(item => item.publish_date_key === todayKey)
+        },
+        tomorrow: {
+            date_key: tomorrowKey,
+            tasks: tasks.filter(task => task.due_date_key === tomorrowKey),
+            events: events.filter(event => event.starts_date_key === tomorrowKey),
+            editorial: editorial.filter(item => item.publish_date_key === tomorrowKey)
+        },
+        all_tasks: tasks,
+        all_events: events,
+        all_editorial: editorial,
+        docs,
+        strategies
+    };
 }
 
 function renderContextChips() {
