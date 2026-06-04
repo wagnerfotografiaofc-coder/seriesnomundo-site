@@ -591,7 +591,7 @@ async function sendChatMessage(event) {
         chatId: state.currentChatId,
         modelId: model.id,
         message: text,
-        context: buildAiContextPayload(),
+        context: buildAiContextPayload(text),
         history: buildRecentChatHistory(),
         clientMeta: getClientMeta(),
         maxOutputTokens: model.family === 'claude' ? 1500 : model.maxOutput
@@ -942,27 +942,33 @@ function refreshAttachedContext() {
     }));
 }
 
-function buildAiContextPayload() {
+function buildAiContextPayload(message = '') {
     refreshAttachedContext();
     const snapshot = {
         type: 'operational_snapshot',
         label: 'Snapshot operacional do painel',
         data: getOperationalSnapshotForAi()
     };
-    return [snapshot, ...state.context.map(item => ({
-        type: item.type,
-        label: item.label,
-        data: item.data
-    }))];
+
+    const detailedTypes = new Set(inferContextTypes(message));
+    const detailedContext = state.context
+        .filter(item => item.type === 'briefing' || detailedTypes.has(item.type))
+        .map(item => ({
+            type: item.type,
+            label: item.label,
+            data: item.data
+        }));
+
+    return [snapshot, ...detailedContext];
 }
 
 function buildRecentChatHistory() {
     return state.entities.messages
         .filter(message => ['user', 'assistant'].includes(message.role))
-        .slice(-10)
+        .slice(-6)
         .map(message => ({
             role: message.role,
-            content: message.content,
+            content: plainTruncate(message.content, 600),
             created_at: formatDateTimeForAi(message.created_at || new Date().toISOString())
         }));
 }
@@ -1073,11 +1079,11 @@ function getContextData(type) {
 }
 
 function getOperationalSnapshotForAi() {
-    const tasks = state.entities.tasks.map(serializeTaskForAi);
-    const events = state.entities.events.map(serializeEventForAi);
-    const editorial = state.entities.editorial.map(serializeEditorialForAi);
-    const docs = state.entities.docs.map(serializeDocForAi);
-    const strategies = state.entities.strategies.map(serializeStrategyForAi);
+    const tasks = state.entities.tasks.map(serializeCompactTaskForAi);
+    const events = state.entities.events.map(serializeCompactEventForAi);
+    const editorial = state.entities.editorial.map(serializeCompactEditorialForAi);
+    const docs = state.entities.docs.map(serializeCompactDocForAi);
+    const strategies = state.entities.strategies.map(serializeCompactStrategyForAi);
     const todayKey = localDateKey(new Date());
     const tomorrowDate = new Date();
     tomorrowDate.setDate(tomorrowDate.getDate() + 1);
@@ -1219,6 +1225,11 @@ function truncate(value, maxLength) {
     return text.length > maxLength ? `${escapeHTML(text.slice(0, maxLength))}...` : escapeHTML(text);
 }
 
+function plainTruncate(value, maxLength) {
+    const text = String(value || '').trim();
+    return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
 function serializeTaskForAi(task) {
     return {
         id: task.id,
@@ -1235,6 +1246,18 @@ function serializeTaskForAi(task) {
     };
 }
 
+function serializeCompactTaskForAi(task) {
+    return {
+        id: task.id,
+        title: task.title,
+        description_preview: plainTruncate(task.description || '', 140),
+        status: task.status || 'a_fazer',
+        priority: task.priority || 'media',
+        due_at_local: formatDateTimeForAi(task.due_at),
+        due_date_key: localDateKey(task.due_at)
+    };
+}
+
 function serializeEventForAi(event) {
     return {
         id: event.id,
@@ -1242,6 +1265,18 @@ function serializeEventForAi(event) {
         description: event.description || '',
         event_type: event.event_type || 'operacao',
         starts_at_iso: event.starts_at || null,
+        starts_at_local: formatDateTimeForAi(event.starts_at),
+        starts_date_key: localDateKey(event.starts_at),
+        ends_at_local: formatDateTimeForAi(event.ends_at)
+    };
+}
+
+function serializeCompactEventForAi(event) {
+    return {
+        id: event.id,
+        title: event.title,
+        description_preview: plainTruncate(event.description || '', 140),
+        event_type: event.event_type || 'operacao',
         starts_at_local: formatDateTimeForAi(event.starts_at),
         starts_date_key: localDateKey(event.starts_at),
         ends_at_local: formatDateTimeForAi(event.ends_at)
@@ -1262,13 +1297,36 @@ function serializeEditorialForAi(item) {
     };
 }
 
+function serializeCompactEditorialForAi(item) {
+    return {
+        id: item.id,
+        title: item.title,
+        channel: item.channel || '',
+        status: item.status || 'ideia',
+        publish_at_local: formatDateTimeForAi(item.publish_at),
+        publish_date_key: localDateKey(item.publish_at),
+        summary_preview: plainTruncate(item.summary || '', 160)
+    };
+}
+
 function serializeDocForAi(doc) {
     return {
         id: doc.id,
         title: doc.title,
         category: doc.category || 'Outro',
         tags: doc.tags || '',
-        content: doc.content || '',
+        content: plainTruncate(doc.content || '', 900),
+        updated_at_local: formatDateTimeForAi(doc.updated_at)
+    };
+}
+
+function serializeCompactDocForAi(doc) {
+    return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category || 'Outro',
+        tags: doc.tags || '',
+        content_preview: plainTruncate(doc.content || '', 220),
         updated_at_local: formatDateTimeForAi(doc.updated_at)
     };
 }
@@ -1278,8 +1336,19 @@ function serializeStrategyForAi(strategy) {
         id: strategy.id,
         title: strategy.title,
         category: strategy.category || 'Marketing',
-        description: strategy.description || '',
-        notes: strategy.notes || '',
+        description: plainTruncate(strategy.description || '', 600),
+        notes: plainTruncate(strategy.notes || '', 600),
+        updated_at_local: formatDateTimeForAi(strategy.updated_at)
+    };
+}
+
+function serializeCompactStrategyForAi(strategy) {
+    return {
+        id: strategy.id,
+        title: strategy.title,
+        category: strategy.category || 'Marketing',
+        description_preview: plainTruncate(strategy.description || '', 220),
+        notes_preview: plainTruncate(strategy.notes || '', 140),
         updated_at_local: formatDateTimeForAi(strategy.updated_at)
     };
 }

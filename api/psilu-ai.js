@@ -49,6 +49,8 @@ Quando o Bruno disser "hoje" ou "amanha", use today_key e tomorrow_key de DADOS 
 Nunca afirme que executou uma acao fora do painel. Quando sugerir tarefas, eventos ou estrategias, deixe claro que precisam de aprovacao.
 Nunca diga "criei", "salvei", "adicionei" ou "marquei" uma tarefa/evento/doc se a acao ainda nao foi aprovada pelo Bruno no painel.
 Quando o usuario pedir para criar, editar, apagar ou concluir algo, responda como "Sugestao preparada para aprovacao" e liste os campos propostos.
+Inclua o bloco ACAO_SUGERIDA_JSON somente quando o Bruno pedir explicitamente para criar, editar, apagar, concluir, marcar, agendar, registrar ou alterar algo.
+Nunca inclua ACAO_SUGERIDA_JSON para resumo, listagem, consulta, analise, explicacao ou pergunta sem pedido de alteracao no painel.
 Quando sugerir uma acao que o painel pode aprovar, inclua tambem um bloco oculto no fim:
 ACAO_SUGERIDA_JSON
 [{"type":"task|event|editorial|doc|strategy","operation":"create|update|delete|complete","title":"...","description":"...","payload":{"title":"...","target_id":"id se existir no contexto","target_title":"titulo se existir","updates":{"priority":"alta"}}}]
@@ -213,7 +215,7 @@ function buildContextText(context) {
     return context.map(item => {
         const label = item.label || item.type || 'contexto';
         return `## ${label}\n${JSON.stringify(item.data || [], null, 2)}`;
-    }).join('\n\n').slice(0, 24000);
+    }).join('\n\n').slice(0, 14000);
 }
 
 function buildMetaText(meta) {
@@ -230,10 +232,10 @@ function buildMetaText(meta) {
 
 function buildHistoryText(history) {
     if (!Array.isArray(history) || !history.length) return '';
-    return history.slice(-10).map(message => {
+    return history.slice(-6).map(message => {
         const role = message.role === 'assistant' ? 'Assistente' : 'Bruno';
         return `${role} (${message.created_at || ''}): ${message.content || ''}`;
-    }).join('\n').slice(0, 8000);
+    }).join('\n').slice(0, 4000);
 }
 
 function estimateTokens(text) {
@@ -247,21 +249,24 @@ function calculateCost(inputTokens, outputTokens, config) {
 function extractSuggestedActions(rawText, userMessage) {
     let text = String(rawText || '').trim();
     const actions = [];
+    const allowActions = isActionRequest(userMessage);
     const jsonBlock = text.match(/ACAO_SUGERIDA_JSON\s*([\s\S]*?)\s*FIM_ACAO_SUGERIDA_JSON/i);
 
     if (jsonBlock) {
-        try {
-            const parsed = JSON.parse(jsonBlock[1].trim());
-            if (Array.isArray(parsed)) {
-                parsed.forEach(action => actions.push(normalizeAction(action, userMessage)));
+        if (allowActions) {
+            try {
+                const parsed = JSON.parse(jsonBlock[1].trim());
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(action => actions.push(normalizeAction(action, userMessage)));
+                }
+            } catch (_error) {
+                actions.push(...inferActionsFromText(userMessage, text));
             }
-        } catch (_error) {
-            actions.push(...inferActionsFromText(userMessage, text));
         }
         text = text.replace(jsonBlock[0], '').trim();
     }
 
-    if (!actions.length) {
+    if (allowActions && !actions.length) {
         actions.push(...inferActionsFromText(userMessage, text));
     }
 
@@ -271,10 +276,15 @@ function extractSuggestedActions(rawText, userMessage) {
     };
 }
 
+function isActionRequest(message) {
+    const normalized = normalizeForSearch(message);
+    return /\b(crie|criar|adicione|adicionar|inclua|incluir|marque|marcar|agende|agendar|coloque|colocar|registre|registrar|altere|alterar|mude|mudar|edite|editar|atualize|atualizar|troque|trocar|apague|apagar|delete|deletar|exclua|excluir|remova|remover|conclua|concluir|finalize|finalizar)\b/.test(normalized);
+}
+
 function inferActionsFromText(userMessage, assistantText) {
     const source = `${userMessage}\n${assistantText}`;
     const normalized = normalizeForSearch(source);
-    const wantsCreate = /\b(crie|criar|adicione|adicionar|marque|marcar|agende|agendar|coloque|colocar|registre|registrar|prepare)\b/.test(normalized);
+    const wantsCreate = /\b(crie|criar|adicione|adicionar|inclua|incluir|marque|marcar|agende|agendar|coloque|colocar|registre|registrar)\b/.test(normalized);
     const wantsUpdate = /\b(altere|alterar|mude|mudar|edite|editar|atualize|atualizar|troque|trocar)\b/.test(normalized);
     const wantsDelete = /\b(apague|apagar|delete|deletar|exclua|excluir|remova|remover)\b/.test(normalized);
     const wantsComplete = /\b(conclua|concluir|finalize|finalizar|marque como concluida|marcar como concluida|feito)\b/.test(normalized);
@@ -390,8 +400,22 @@ function normalizeAction(action, userMessage) {
     const type = normalizeActionType(action.type || action.action_type);
     if (!type) return null;
     const payload = action.payload && typeof action.payload === 'object' ? action.payload : {};
-    const title = String(action.title || payload.title || 'Acao sugerida').trim();
     const operation = normalizeOperation(action.operation || payload.operation);
+    const inferredTarget = inferTargetTitle(userMessage);
+
+    if (['update', 'delete', 'complete'].includes(operation) && inferredTarget && !payload.target_id && !payload.target_title) {
+        payload.target_title = inferredTarget;
+    }
+
+    if (operation === 'update' && (!payload.updates || !Object.keys(payload.updates).length)) {
+        payload.updates = inferUpdates(normalizeForSearch(userMessage));
+    }
+
+    let title = String(action.title || payload.title || 'Acao sugerida').trim();
+    if (operation === 'update' && payload.target_title) title = `Editar ${payload.target_title}`;
+    if (operation === 'delete' && payload.target_title) title = `Apagar ${payload.target_title}`;
+    if (operation === 'complete' && payload.target_title) title = `Concluir ${payload.target_title}`;
+
     return {
         type,
         operation,
