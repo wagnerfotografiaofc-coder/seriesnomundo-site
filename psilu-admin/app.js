@@ -27,6 +27,7 @@ const state = {
     editingId: null,
     currentChatId: null,
     context: [],
+    pendingActions: {},
     entities: {
         tasks: [],
         events: [],
@@ -44,7 +45,8 @@ const tables = {
     docs: 'psilu_docs',
     strategies: 'psilu_strategies',
     chats: 'psilu_ai_chats',
-    messages: 'psilu_ai_messages'
+    messages: 'psilu_ai_messages',
+    actions: 'psilu_ai_suggested_actions'
 };
 
 const modalConfigs = {
@@ -239,7 +241,7 @@ function getGreeting(now) {
 }
 
 function getDailyPhrase() {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = localDateKey(new Date());
     const seed = Array.from(todayKey).reduce((sum, char) => sum + char.charCodeAt(0), 0);
     return DAILY_PHRASES[seed % DAILY_PHRASES.length];
 }
@@ -253,7 +255,7 @@ function renderHome() {
     els.homeTaskList.innerHTML = nextTasks.length ? nextTasks.map(task => `
         <div class="task-preview">
             <strong>${escapeHTML(task.title)}</strong>
-            <span class="meta">${formatDate(task.due_at) || 'Sem prazo'} · ${escapeHTML(task.priority || 'media')}</span>
+            <span class="meta">${formatDate(task.due_at) || 'Sem prazo'} - ${escapeHTML(task.priority || 'media')}</span>
             <div class="pill-row">
                 <span class="pill">${formatStatus(task.status)}</span>
                 <button type="button" class="ghost-btn" data-complete-task="${task.id}">Concluir</button>
@@ -333,7 +335,7 @@ function renderEditorial() {
             <span class="meta">${formatDate(item.publish_at) || 'Sem data'}</span>
             <div>
                 <h3>${escapeHTML(item.title)}</h3>
-                <p class="meta">${escapeHTML(item.channel || 'Canal')} · ${escapeHTML(item.status || 'ideia')}</p>
+                <p class="meta">${escapeHTML(item.channel || 'Canal')} - ${escapeHTML(item.status || 'ideia')}</p>
             </div>
             <span class="pill">${escapeHTML(item.channel || 'Outro')}</span>
         </button>
@@ -379,11 +381,13 @@ function setView(view) {
     });
 }
 
-function openModal(type, id = null) {
+function openModal(type, id = null, seed = null) {
     const config = modalConfigs[type];
     state.activeModal = type;
     state.editingId = id;
-    const item = id ? state.entities[config.table].find(entity => String(entity.id) === String(id)) : config.defaults;
+    const item = id
+        ? state.entities[config.table].find(entity => String(entity.id) === String(id))
+        : { ...config.defaults, ...(seed || {}) };
 
     els.modalTitle.textContent = `${id ? 'Editar' : 'Novo'} ${config.title.toLowerCase()}`;
     els.deleteEntityBtn.classList.toggle('hidden', !id);
@@ -498,6 +502,10 @@ async function sendChatMessage(event) {
     els.chatInput.value = '';
     addChatBubble('user', text);
     await saveMessage('user', text, model);
+    const inferredContexts = addContextFromMessage(text);
+    if (inferredContexts.length) {
+        addChatBubble('system', `Contexto anexado automaticamente: ${inferredContexts.join(', ')}.`);
+    }
 
     const payload = {
         chatId: state.currentChatId,
@@ -521,7 +529,8 @@ async function sendChatMessage(event) {
         if (!response.ok) throw new Error(result.error || 'Falha ao chamar IA.');
 
         addChatBubble('assistant', result.text, result.usage, result.suggestedActions);
-        await saveMessage('assistant', result.text, model, result.usage);
+        const savedMessage = await saveMessage('assistant', result.text, model, result.usage);
+        await saveSuggestedActions(savedMessage?.id, result.suggestedActions || []);
     } catch (error) {
         addChatBubble('assistant', `Ainda nao consegui falar com a IA: ${error.message}`);
     }
@@ -529,7 +538,7 @@ async function sendChatMessage(event) {
 
 async function saveMessage(role, content, model, usage = null) {
     if (!state.currentChatId) return;
-    await supabaseClient.from(tables.messages).insert({
+    const { data } = await supabaseClient.from(tables.messages).insert({
         chat_id: state.currentChatId,
         role,
         content,
@@ -537,14 +546,30 @@ async function saveMessage(role, content, model, usage = null) {
         input_tokens: usage?.inputTokens || 0,
         output_tokens: usage?.outputTokens || 0,
         estimated_cost: usage?.estimatedCost || 0
-    });
+    }).select().single();
+    return data;
+}
+
+async function saveSuggestedActions(messageId, actions) {
+    if (!state.currentChatId || !messageId || !Array.isArray(actions) || !actions.length) return;
+    const rows = actions.map(action => ({
+        chat_id: state.currentChatId,
+        message_id: messageId,
+        action_type: action.type || action.action_type || 'note',
+        title: action.title || 'Acao sugerida',
+        payload: action.payload || {},
+        status: 'pending'
+    }));
+    await supabaseClient.from(tables.actions).insert(rows);
 }
 
 function addChatBubble(role, text, usage = null, suggestedActions = []) {
     const bubble = document.createElement('div');
     bubble.className = `message ${role}`;
-    bubble.innerHTML = `<div>${escapeHTML(text)}</div>${usage ? renderUsage(usage) : ''}${renderSuggestedActions(suggestedActions)}`;
+    const actions = rememberSuggestedActions(suggestedActions);
+    bubble.innerHTML = `<div>${escapeHTML(text)}</div>${usage ? renderUsage(usage) : ''}${renderSuggestedActions(actions)}`;
     els.chatThread.appendChild(bubble);
+    bindSuggestedActionButtons(bubble);
     els.chatThread.scrollTop = els.chatThread.scrollHeight;
 }
 
@@ -554,7 +579,7 @@ function addSystemMessage(text) {
 }
 
 function renderUsage(usage) {
-    return `<p class="cost-line">Entrada: ${usage.inputTokens || 0} tokens · Saida: ${usage.outputTokens || 0} tokens · Custo estimado: US$${Number(usage.estimatedCost || 0).toFixed(4)}</p>`;
+    return `<p class="cost-line">Entrada: ${usage.inputTokens || 0} tokens - Saida: ${usage.outputTokens || 0} tokens - Custo estimado: US$${Number(usage.estimatedCost || 0).toFixed(4)}</p>`;
 }
 
 function renderSuggestedActions(actions) {
@@ -563,45 +588,199 @@ function renderSuggestedActions(actions) {
         <div class="suggested-action">
             <strong>${escapeHTML(action.title || 'Acao sugerida')}</strong>
             <p class="meta">${escapeHTML(action.description || '')}</p>
-            <button type="button" class="ghost-btn" disabled>Aprovar depois</button>
+            <button type="button" class="ghost-btn" data-review-action="${escapeHTML(action.localId)}">Revisar e aprovar</button>
         </div>
     `).join('')}</div>`;
 }
 
+function rememberSuggestedActions(actions) {
+    if (!Array.isArray(actions)) return [];
+    return actions.map(action => {
+        const localId = `action-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const storedAction = { ...action, localId };
+        state.pendingActions[localId] = storedAction;
+        return storedAction;
+    });
+}
+
+function bindSuggestedActionButtons(container) {
+    container.querySelectorAll('[data-review-action]').forEach(button => {
+        button.addEventListener('click', () => reviewSuggestedAction(button.dataset.reviewAction));
+    });
+}
+
+function reviewSuggestedAction(actionId) {
+    const action = state.pendingActions[actionId];
+    if (!action) return;
+
+    const modalType = modalTypeForAction(action);
+    if (!modalType) {
+        addChatBubble('system', 'Essa sugestao ainda nao tem formulario automatico. Copie o texto e crie manualmente.');
+        return;
+    }
+
+    openModal(modalType, null, payloadForSuggestedAction(action, modalType));
+}
+
+function modalTypeForAction(action) {
+    const type = String(action.type || action.action_type || '').replace(/^create_/, '');
+    if (['task', 'event', 'editorial', 'doc', 'strategy'].includes(type)) return type;
+    if (type === 'calendar') return 'event';
+    if (type === 'document') return 'doc';
+    return null;
+}
+
+function payloadForSuggestedAction(action, modalType) {
+    const payload = { ...(action.payload || {}) };
+    const inferredDate = inferDateTimeFromText(action.sourceMessage || action.description || action.title || '');
+
+    if (modalType === 'task') {
+        return {
+            title: payload.title || action.title || 'Tarefa sugerida',
+            description: payload.description || action.description || '',
+            status: payload.status || 'a_fazer',
+            priority: payload.priority || 'media',
+            due_at: payload.due_at || inferredDate || '',
+            origin: 'ia'
+        };
+    }
+
+    if (modalType === 'event') {
+        return {
+            title: payload.title || action.title || 'Evento sugerido',
+            description: payload.description || action.description || '',
+            starts_at: payload.starts_at || inferredDate || '',
+            ends_at: payload.ends_at || '',
+            event_type: payload.event_type || 'operacao'
+        };
+    }
+
+    if (modalType === 'editorial') {
+        return {
+            title: payload.title || action.title || 'Item editorial sugerido',
+            channel: payload.channel || 'Instagram',
+            status: payload.status || 'ideia',
+            publish_at: payload.publish_at || inferredDate || '',
+            summary: payload.summary || action.description || '',
+            notes: payload.notes || ''
+        };
+    }
+
+    if (modalType === 'doc') {
+        return {
+            title: payload.title || action.title || 'Documento sugerido',
+            category: payload.category || 'Outro',
+            tags: payload.tags || '',
+            content: payload.content || action.description || ''
+        };
+    }
+
+    return {
+        title: payload.title || action.title || 'Estrategia sugerida',
+        category: payload.category || 'Marketing',
+        description: payload.description || action.description || '',
+        notes: payload.notes || ''
+    };
+}
+
 async function addContext(type) {
-    const labelMap = {
+    if (!state.context.some(item => item.type === type)) {
+        state.context.push({ type, label: contextLabel(type), data: getContextData(type) });
+    }
+    renderContextChips();
+}
+
+function addContextFromMessage(message) {
+    const types = inferContextTypes(message);
+    const addedLabels = [];
+    types.forEach(type => {
+        if (!state.context.some(item => item.type === type)) {
+            const label = contextLabel(type);
+            state.context.push({ type, label, data: getContextData(type) });
+            addedLabels.push(label);
+        }
+    });
+    renderContextChips();
+    return addedLabels;
+}
+
+function inferContextTypes(message) {
+    const text = normalizeForSearch(message);
+    const types = new Set();
+
+    if (/(hoje|meu dia|dia de hoje|rotina|agora)/.test(text)) types.add('today');
+    if (/(tarefa|tarefas|pendencia|pendencias|kanban|fazer|fazendo|concluid)/.test(text)) types.add('tasks');
+    if (/(calendario|agenda|compromisso|reuniao|evento|eventos|horario)/.test(text)) types.add('calendar');
+    if (/(editorial|conteudo|post|posts|instagram|tiktok|email|whatsapp)/.test(text)) types.add('editorial');
+    if (/(doc|docs|documento|documentos|icp|concorrente|concorrencia|produto|oferta|empresa|vendas)/.test(text)) types.add('docs');
+    if (/(estrategia|estrategias|teste|testes|hipotese|prospeccao|gargalo|vender|venda|cmo)/.test(text)) types.add('strategies');
+
+    if (/(cmo|opus|sonnet|analise profunda|gargalo|porque nao estou vendendo|por que nao estou vendendo|empresa inteira)/.test(text)) {
+        ['today', 'tasks', 'calendar', 'editorial', 'docs', 'strategies'].forEach(type => types.add(type));
+    }
+
+    return Array.from(types);
+}
+
+function contextLabel(type) {
+    return {
         today: 'Hoje',
         tasks: 'Tarefas',
         calendar: 'Calendario',
         editorial: 'Editorial',
         docs: 'Docs',
-        strategies: 'Estrategias'
-    };
-    if (!state.context.some(item => item.type === type)) {
-        state.context.push({ type, label: labelMap[type], data: getContextData(type) });
-    }
-    renderContextChips();
+        strategies: 'Estrategias',
+        briefing: 'Briefing CMO'
+    }[type] || type;
 }
 
 async function prepareBriefing() {
-    const previousContext = [...state.context];
     ['today', 'tasks', 'calendar', 'editorial', 'docs', 'strategies'].forEach(type => {
         if (!state.context.some(item => item.type === type)) {
-            state.context.push({ type, label: type, data: getContextData(type) });
+            state.context.push({ type, label: contextLabel(type), data: getContextData(type) });
         }
     });
     renderContextChips();
-    addChatBubble('system', 'Briefing CMO preparado com resumo do dia, tarefas, calendarios, docs e estrategias. Escolha Sonnet ou Opus e envie sua pergunta.');
-    if (!previousContext.length) return;
+    addChatBubble('system', 'Preparando briefing CMO com DeepSeek Flash...');
+
+    try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const response = await fetch('/api/psilu-ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionData.session?.access_token || ''}`
+            },
+            body: JSON.stringify({
+                modelId: 'deepseek-flash',
+                message: 'Prepare um briefing CMO curto para Sonnet/Opus. Resuma situacao do dia, tarefas, calendario, editorial, docs, estrategias, gargalos percebidos e proximos pontos de decisao.',
+                context: state.context,
+                maxOutputTokens: 1200
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Falha ao preparar briefing.');
+        state.context = state.context.filter(item => item.type !== 'briefing');
+        state.context.push({
+            type: 'briefing',
+            label: contextLabel('briefing'),
+            data: { text: result.text, generated_at: new Date().toISOString() }
+        });
+        renderContextChips();
+        addChatBubble('assistant', result.text, result.usage);
+        addChatBubble('system', 'Briefing anexado. Agora escolha Sonnet ou Opus para uma analise CMO em cima desse contexto.');
+    } catch (error) {
+        addChatBubble('system', `Nao consegui preparar o briefing automaticamente: ${error.message}`);
+    }
 }
 
 function getContextData(type) {
     if (type === 'today') {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = localDateKey(new Date());
         return {
-            tasks: state.entities.tasks.filter(item => String(item.due_at || '').slice(0, 10) === today),
-            events: state.entities.events.filter(item => String(item.starts_at || '').slice(0, 10) === today),
-            editorial: state.entities.editorial.filter(item => String(item.publish_at || '').slice(0, 10) === today)
+            tasks: state.entities.tasks.filter(item => localDateKey(item.due_at) === today),
+            events: state.entities.events.filter(item => localDateKey(item.starts_at) === today),
+            editorial: state.entities.editorial.filter(item => localDateKey(item.publish_at) === today)
         };
     }
     if (type === 'calendar') return state.entities.events;
@@ -658,6 +837,15 @@ function dateValue(value) {
     return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
 }
 
+function localDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function toInputDate(value, inputType) {
     if (!value || inputType !== 'datetime-local') return value || '';
     const date = new Date(value);
@@ -668,4 +856,38 @@ function toInputDate(value, inputType) {
 function truncate(value, maxLength) {
     const text = String(value || '');
     return text.length > maxLength ? `${escapeHTML(text.slice(0, maxLength))}...` : escapeHTML(text);
+}
+
+function normalizeForSearch(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+
+function inferDateTimeFromText(value) {
+    const text = normalizeForSearch(value);
+    const now = new Date();
+    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0, 0);
+
+    if (/\bamanha\b/.test(text)) {
+        date.setDate(date.getDate() + 1);
+    } else {
+        const explicitDate = text.match(/\b(?:dia\s*)?(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/);
+        if (explicitDate) {
+            const day = Number(explicitDate[1]);
+            const month = Number(explicitDate[2]) - 1;
+            const year = explicitDate[3]
+                ? Number(explicitDate[3].length === 2 ? `20${explicitDate[3]}` : explicitDate[3])
+                : now.getFullYear();
+            date.setFullYear(year, month, day);
+        }
+    }
+
+    const hourMatch = text.match(/\b(?:as|a)\s*(\d{1,2})(?::(\d{2})|h(\d{2})?| horas?)?\b/) || text.match(/\b(\d{1,2})(?::(\d{2})|h(\d{2})?)\b/);
+    if (hourMatch) {
+        date.setHours(Number(hourMatch[1]), Number(hourMatch[2] || hourMatch[3] || 0), 0, 0);
+    }
+
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }

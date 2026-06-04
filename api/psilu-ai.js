@@ -46,7 +46,13 @@ Quando estiver usando Claude, aja como CMO: diagnostique gargalos, proponha hipo
 Nunca afirme que executou uma acao fora do painel. Quando sugerir tarefas, eventos ou estrategias, deixe claro que precisam de aprovacao.
 Nunca diga "criei", "salvei", "adicionei" ou "marquei" uma tarefa/evento/doc se a acao ainda nao foi aprovada pelo Bruno no painel.
 Quando o usuario pedir para criar algo, responda como "Sugestao preparada para aprovacao" e liste os campos propostos.
+Quando sugerir uma acao que o painel pode aprovar, inclua tambem um bloco oculto no fim:
+ACAO_SUGERIDA_JSON
+[{"type":"task|event|editorial|doc|strategy","title":"...","description":"...","payload":{"title":"...","description":"..."}}]
+FIM_ACAO_SUGERIDA_JSON
+O texto visivel deve continuar humano e curto.
 Para analises CMO, responda com: diagnostico, evidencias, proximo teste e decisao recomendada.
+Se houver CONTEXTO ANEXADO, use esse contexto como fonte real do painel. Nao diga que nao tem acesso ao painel quando o contexto anexado trouxer tarefas, calendario, docs ou estrategias.
 Se faltar contexto real, diga exatamente qual contexto precisa em vez de inventar.
 Seja objetivo. Use o menor tamanho necessario e nunca escreva relatorio longo sem necessidade.
 `;
@@ -79,19 +85,21 @@ module.exports = async function handler(request, response) {
             ? await callAnthropic(selectedConfig, prompt, maxOutputTokens)
             : await callDeepSeek(selectedConfig, prompt, maxOutputTokens);
 
+        const actionExtraction = extractSuggestedActions(result.text, userMessage);
+        const finalText = actionExtraction.text;
         const inputTokens = result.inputTokens || estimateTokens(`${MASTER_PROMPT}\n${prompt}`);
-        const outputTokens = result.outputTokens || estimateTokens(result.text);
+        const outputTokens = result.outputTokens || estimateTokens(finalText);
         const estimatedCost = calculateCost(inputTokens, outputTokens, selectedConfig);
 
         return response.status(200).json({
-            text: result.text,
+            text: finalText,
             usage: {
                 inputTokens,
                 outputTokens,
                 estimatedCost,
                 maxOutputTokens
             },
-            suggestedActions: extractSuggestedActions(result.text)
+            suggestedActions: actionExtraction.actions
         });
     } catch (error) {
         return response.status(error.statusCode || 500).json({ error: error.message || 'Erro interno.' });
@@ -206,12 +214,159 @@ function calculateCost(inputTokens, outputTokens, config) {
     return Number(((inputTokens / 1000000) * config.inputPrice + (outputTokens / 1000000) * config.outputPrice).toFixed(6));
 }
 
-function extractSuggestedActions(text) {
-    const taskMatches = String(text || '').match(/(?:tarefa|acao recomendada|proximo teste):\s*(.+)/gi) || [];
-    return taskMatches.slice(0, 3).map(match => ({
-        title: match.split(':').slice(1).join(':').trim() || 'Acao sugerida',
-        description: 'Revise antes de aprovar no painel.'
-    }));
+function extractSuggestedActions(rawText, userMessage) {
+    let text = String(rawText || '').trim();
+    const actions = [];
+    const jsonBlock = text.match(/ACAO_SUGERIDA_JSON\s*([\s\S]*?)\s*FIM_ACAO_SUGERIDA_JSON/i);
+
+    if (jsonBlock) {
+        try {
+            const parsed = JSON.parse(jsonBlock[1].trim());
+            if (Array.isArray(parsed)) {
+                parsed.forEach(action => actions.push(normalizeAction(action, userMessage)));
+            }
+        } catch (_error) {
+            actions.push(...inferActionsFromText(userMessage, text));
+        }
+        text = text.replace(jsonBlock[0], '').trim();
+    }
+
+    if (!actions.length) {
+        actions.push(...inferActionsFromText(userMessage, text));
+    }
+
+    return {
+        text,
+        actions: actions.filter(Boolean).slice(0, 4)
+    };
+}
+
+function inferActionsFromText(userMessage, assistantText) {
+    const source = `${userMessage}\n${assistantText}`;
+    const normalized = normalizeForSearch(source);
+    const wantsCreate = /\b(crie|criar|adicione|adicionar|marque|marcar|agende|agendar|coloque|colocar|registre|registrar|prepare)\b/.test(normalized);
+    if (!wantsCreate) return [];
+
+    if (/\b(tarefa|tarefas|task|pendencia)\b/.test(normalized)) {
+        const title = inferTitle(userMessage, 'Tarefa sugerida');
+        return [normalizeAction({
+            type: 'task',
+            title,
+            description: `Sugestao preparada a partir do pedido: ${userMessage}`,
+            payload: {
+                title,
+                description: '',
+                status: 'a_fazer',
+                priority: 'media',
+                origin: 'ia'
+            }
+        }, userMessage)];
+    }
+
+    if (/\b(calendario|agenda|evento|reuniao|compromisso)\b/.test(normalized)) {
+        const title = inferTitle(userMessage, 'Evento sugerido');
+        return [normalizeAction({
+            type: 'event',
+            title,
+            description: `Sugestao preparada a partir do pedido: ${userMessage}`,
+            payload: {
+                title,
+                description: '',
+                event_type: normalized.includes('reuniao') ? 'reuniao' : 'operacao'
+            }
+        }, userMessage)];
+    }
+
+    if (/\b(editorial|post|conteudo|instagram|tiktok|email|whatsapp)\b/.test(normalized)) {
+        const title = inferTitle(userMessage, 'Item editorial sugerido');
+        return [normalizeAction({
+            type: 'editorial',
+            title,
+            description: `Sugestao preparada a partir do pedido: ${userMessage}`,
+            payload: { title, channel: inferChannel(normalized), status: 'ideia' }
+        }, userMessage)];
+    }
+
+    if (/\b(doc|documento|icp|concorrente|produto|oferta)\b/.test(normalized)) {
+        const title = inferTitle(userMessage, 'Documento sugerido');
+        return [normalizeAction({
+            type: 'doc',
+            title,
+            description: `Sugestao preparada a partir do pedido: ${userMessage}`,
+            payload: { title, category: 'Outro', content: '' }
+        }, userMessage)];
+    }
+
+    if (/\b(estrategia|estrategias|teste|prospeccao)\b/.test(normalized)) {
+        const title = inferTitle(userMessage, 'Estrategia sugerida');
+        return [normalizeAction({
+            type: 'strategy',
+            title,
+            description: `Sugestao preparada a partir do pedido: ${userMessage}`,
+            payload: { title, category: 'Marketing', description: '' }
+        }, userMessage)];
+    }
+
+    return [];
+}
+
+function normalizeAction(action, userMessage) {
+    if (!action || typeof action !== 'object') return null;
+    const type = normalizeActionType(action.type || action.action_type);
+    if (!type) return null;
+    const payload = action.payload && typeof action.payload === 'object' ? action.payload : {};
+    const title = String(action.title || payload.title || 'Acao sugerida').trim();
+    return {
+        type,
+        title,
+        description: String(action.description || 'Revise os campos antes de aprovar no painel.').trim(),
+        payload: { ...payload, title: payload.title || title },
+        sourceMessage: userMessage
+    };
+}
+
+function normalizeActionType(type) {
+    const normalized = normalizeForSearch(type).replace(/^create_/, '');
+    if (['task', 'event', 'editorial', 'doc', 'strategy'].includes(normalized)) return normalized;
+    if (normalized === 'calendar') return 'event';
+    if (normalized === 'document') return 'doc';
+    return null;
+}
+
+function inferTitle(message, fallback) {
+    const text = String(message || '').trim();
+    const quoted = text.match(/["“'`](.+?)["”'`]/);
+    if (quoted) return cleanTitle(quoted[1], fallback);
+
+    const named = text.match(/(?:chamada|chamado|titulo|t[íi]tulo|nomeada|nomeado)\s+(.+?)(?:\.|,|$)/i);
+    if (named) return cleanTitle(named[1], fallback);
+
+    const afterFor = text.match(/(?:tarefa|evento|reuniao|reuni[ãa]o|estrategia|estrat[ée]gia|documento)\s+(?:para|de)?\s*(.+?)(?:\s+(?:para|no|na|dia|amanh[ãa]|hoje|as|às)\b|\.|,|$)/i);
+    if (afterFor) return cleanTitle(afterFor[1], fallback);
+
+    return fallback;
+}
+
+function cleanTitle(value, fallback) {
+    const title = String(value || '')
+        .replace(/\b(para|amanha|amanhã|hoje|as|às|dia)\b.*$/i, '')
+        .trim();
+    return title || fallback;
+}
+
+function inferChannel(normalizedText) {
+    if (normalizedText.includes('tiktok')) return 'TikTok';
+    if (normalizedText.includes('email')) return 'Email';
+    if (normalizedText.includes('whatsapp')) return 'WhatsApp';
+    if (normalizedText.includes('blog')) return 'Blog';
+    return 'Instagram';
+}
+
+function normalizeForSearch(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
 }
 
 function parseBody(body) {
