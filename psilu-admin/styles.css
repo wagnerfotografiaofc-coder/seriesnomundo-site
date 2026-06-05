@@ -420,6 +420,17 @@ textarea:focus {
     background: var(--line);
 }
 
+.calendar-weekday {
+    background: #f7f6f3;
+    color: var(--muted);
+    box-shadow: inset -1px 0 0 var(--line-soft), inset 0 -1px 0 var(--line-soft);
+    padding: 9px 10px;
+    font-size: 0.74rem;
+    font-weight: 760;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 .day-cell {
     min-height: 130px;
     background: var(--surface);
@@ -427,6 +438,24 @@ textarea:focus {
     box-shadow: inset -1px 0 0 var(--line-soft), inset 0 -1px 0 var(--line-soft);
     border-radius: 0;
     padding: 10px;
+}
+
+.day-cell.empty {
+    background: #fafaf8;
+}
+
+.day-cell.today {
+    background: #fffaf5;
+}
+
+.day-cell.today .day-number {
+    display: inline-grid;
+    place-items: center;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
 }
 
 .day-number {

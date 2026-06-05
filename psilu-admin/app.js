@@ -328,14 +328,25 @@ function renderCalendar() {
     const today = new Date();
     const first = new Date(today.getFullYear(), today.getMonth(), 1);
     const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
     const days = [];
+    const leadingEmptyDays = (first.getDay() + 6) % 7;
+
+    weekdays.forEach(weekday => {
+        days.push(`<div class="calendar-weekday">${weekday}</div>`);
+    });
+
+    for (let index = 0; index < leadingEmptyDays; index += 1) {
+        days.push('<article class="day-cell empty"></article>');
+    }
 
     for (let day = 1; day <= last.getDate(); day += 1) {
         const date = new Date(first.getFullYear(), first.getMonth(), day);
         const dayKey = localDateKey(date);
         const events = state.entities.events.filter(event => localDateKey(event.starts_at) === dayKey);
+        const isToday = localDateKey(today) === dayKey;
         days.push(`
-            <article class="day-cell">
+            <article class="day-cell ${isToday ? 'today' : ''}">
                 <div class="day-number">${day}</div>
                 ${events.map(event => `<div class="calendar-chip">${escapeHTML(event.title)}</div>`).join('')}
             </article>
