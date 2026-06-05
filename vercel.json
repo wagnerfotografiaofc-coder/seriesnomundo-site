@@ -24,6 +24,17 @@
   },
   "redirects": [
     {
+      "source": "/eventocriativo",
+      "destination": "/eventocriativo/",
+      "permanent": false,
+      "has": [
+        {
+          "type": "host",
+          "value": "adminpsilu.seriesnomundo.site"
+        }
+      ]
+    },
+    {
       "source": "/",
       "destination": "/psilu-admin/",
       "permanent": false,
@@ -89,16 +100,6 @@
     {
       "source": "/",
       "destination": "/psilu-admin/index.html",
-      "has": [
-        {
-          "type": "host",
-          "value": "adminpsilu.seriesnomundo.site"
-        }
-      ]
-    },
-    {
-      "source": "/eventocriativo",
-      "destination": "/eventocriativo-admin/index.html",
       "has": [
         {
           "type": "host",
