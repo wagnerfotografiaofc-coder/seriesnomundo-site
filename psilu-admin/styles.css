@@ -215,8 +215,24 @@ textarea:focus {
 
 .hero-panel {
     grid-column: 1 / -1;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--line-soft);
+}
+
+.home-grid .panel {
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.home-grid .panel:nth-child(1) {
+    background: #eef6ff;
+}
+
+.home-grid .panel:nth-child(2) {
+    background: #fff8df;
+}
+
+.home-grid .panel:nth-child(3) {
+    background: #eef8ee;
 }
 
 .panel,
